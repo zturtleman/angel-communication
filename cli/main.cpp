@@ -19,12 +19,43 @@ freely, subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 */
 
+#include <iostream>
 #include <stdio.h>
 #include "../framework/angel.h"
 
+using namespace AngelCommunication;
+
 int main( char **argv, int argc ) {
 	printf("Angel Communication CLI\n");
-	printf("Nothing to do.. exiting\n");
+	printf("Type 'quit' for exit Angel Communication.\n");
+
+	std::string username = "Link";
+	Persona user, bot;
+
+	user.setName( username.c_str() );
+	user.setGender( GENDER_MALE );
+
+	bot.setName( "Angel" );
+	bot.setGender( GENDER_FEMALE );
+
+	// FIXME: bot cannot think unless user does input.
+	while (1)
+	{
+		std::string text;
+
+		// FIXME: read multiple words at once...
+		std::cin >> text;
+
+		if ( text == "quit" )
+		{
+			return 0;
+		}
+
+		printf( "%s: %s\n", username.c_str(), text.c_str() );
+
+		user.tell( bot, text.c_str() );
+	}
+
 	return 0;
 }
 

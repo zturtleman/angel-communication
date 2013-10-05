@@ -19,12 +19,42 @@ freely, subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 */
 
-#ifndef ANGEL_COMMUNICATION_INCLUDED
-#define ANGEL_COMMUNICATION_INCLUDED
+#include <stdio.h>
 
-#include "string.h"
-#include "lexer.h"
 #include "persona.h"
+#include "lexer.h"
 
-#endif // ANGEL_COMMUNICATION_INCLUDED
+namespace AngelCommunication
+{
+
+Persona::Persona()
+{
+	this->name = "unknown";
+	this->gender = GENDER_NONE;
+}
+
+void Persona::setName( const String &name )
+{
+	this->name = name;
+}
+
+void Persona::setGender( Gender gender )
+{
+	this->gender = gender;
+}
+
+void Persona::tell( Persona &target, String message )
+{
+	Lexer tokens;
+
+	tokens.parse( message );
+
+	// ZTM: Tempory debug messages
+	printf( "numTokens=%zu\n", tokens.getNumTokens() );
+	for (int i = 0; i < tokens.getNumTokens(); ++i )
+		printf("token[%d]='%s'\n", i, tokens[i].c_str());
+
+}
+
+} // end namespace AngelCommunication
 

@@ -12,7 +12,13 @@ CXXFLAGS= -g
 LDFLAGS= -g
 LDLIBS=
 
-SRCS=cli/main.cpp
+SRCS= \
+	framework/string.cpp \
+	framework/lexer.cpp \
+	framework/persona.cpp \
+	\
+	cli/main.cpp
+
 OBJS=$(subst .cpp,.o,$(SRCS))
 BACKUP=$(subst .cpp,.cpp~,$(SRCS))
 

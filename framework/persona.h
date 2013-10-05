@@ -19,12 +19,37 @@ freely, subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 */
 
-#ifndef ANGEL_COMMUNICATION_INCLUDED
-#define ANGEL_COMMUNICATION_INCLUDED
+#ifndef ANGEL_PERSONA_INCLUDED
+#define ANGEL_PERSONA_INCLUDED
 
 #include "string.h"
-#include "lexer.h"
-#include "persona.h"
 
-#endif // ANGEL_COMMUNICATION_INCLUDED
+namespace AngelCommunication
+{
+
+enum Gender
+{
+	GENDER_NONE,
+	GENDER_FEMALE,
+	GENDER_MALE
+};
+
+class Persona
+{
+	private:
+		String name;
+		Gender gender;
+
+	public:
+		Persona();
+
+		void setName( const String &name );
+		void setGender( Gender gender );
+
+		void tell( Persona &target, String message );
+};
+
+}
+
+#endif // ANGEL_PERSONA_INCLUDED
 

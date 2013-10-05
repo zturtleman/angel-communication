@@ -19,12 +19,38 @@ freely, subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 */
 
-#ifndef ANGEL_COMMUNICATION_INCLUDED
-#define ANGEL_COMMUNICATION_INCLUDED
+#ifndef ANGEL_LEXER_INCLUDED
+#define ANGEL_LEXER_INCLUDED
+
+#include <vector>
 
 #include "string.h"
-#include "lexer.h"
-#include "persona.h"
 
-#endif // ANGEL_COMMUNICATION_INCLUDED
+namespace AngelCommunication
+{
+
+/*
+    Lexer class
+    Parse and store a string of text as tokens.
+*/
+class Lexer
+{
+    private:
+        std::vector<String> tokens;
+
+    public:
+        Lexer(void);
+		Lexer(const String &text);
+        ~Lexer(void);
+        void clear(void);
+        void parse(const String &text);
+        size_t getNumTokens(void) const;
+        String getToken(unsigned int index) const;
+        String operator[](unsigned int index) const;
+};
+
+
+} // end namespace AngelCommunication
+
+#endif // ANGEL_LEXER_INCLUDED
 
