@@ -33,6 +33,7 @@ freely, subject to the following restrictions:
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <unistd.h>
 #include <iostream>
 
 #include "string.h"

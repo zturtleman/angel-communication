@@ -31,6 +31,7 @@ freely, subject to the following restrictions:
 #ifndef ANGEL_STRING_INCLUDED
 #define ANGEL_STRING_INCLUDED
 
+#include <cstdlib>
 #include <vector>
 
 namespace AngelCommunication

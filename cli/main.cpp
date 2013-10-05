@@ -25,7 +25,7 @@ freely, subject to the following restrictions:
 
 using namespace AngelCommunication;
 
-int main( char **argv, int argc ) {
+int main( int argc, char **argv ) {
 	printf("Angel Communication CLI\n");
 	printf("Type 'quit' for exit Angel Communication.\n");
 
