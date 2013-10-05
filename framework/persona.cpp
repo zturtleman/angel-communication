@@ -50,7 +50,7 @@ void Persona::tell( Persona &target, String message )
 	tokens.parse( message );
 
 	// ZTM: Tempory debug messages
-	printf( "numTokens=%zu\n", tokens.getNumTokens() );
+	printf( "numTokens=%d\n", tokens.getNumTokens() );
 	for (int i = 0; i < tokens.getNumTokens(); ++i )
 		printf("token[%d]='%s'\n", i, tokens[i].c_str());
 
