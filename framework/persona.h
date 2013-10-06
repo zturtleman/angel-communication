@@ -22,7 +22,10 @@ freely, subject to the following restrictions:
 #ifndef ANGEL_PERSONA_INCLUDED
 #define ANGEL_PERSONA_INCLUDED
 
+#include <ctime>
+
 #include "string.h"
+#include "lexer.h"
 
 namespace AngelCommunication
 {
@@ -40,6 +43,11 @@ class Persona
 		String name;
 		Gender gender;
 
+		Lexer tokens; // unprocessed message tokens.
+
+		std::clock_t lastUpdate;
+		//int			thinkDelay;
+
 	public:
 		Persona();
 
@@ -47,6 +55,9 @@ class Persona
 		void setGender( Gender gender );
 
 		void tell( Persona &target, String message );
+
+		void think();
+		void say( const String &message );
 };
 
 }

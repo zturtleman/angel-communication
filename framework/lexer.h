@@ -47,6 +47,9 @@ class Lexer
         size_t getNumTokens(void) const;
         String getToken(unsigned int index) const;
         String operator[](unsigned int index) const;
+
+		int findExact(const String &needle) const;
+		int findPartial(const String &needle) const;
 };
 
 

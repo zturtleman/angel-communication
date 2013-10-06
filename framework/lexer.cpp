@@ -88,5 +88,27 @@ size_t Lexer::getNumTokens() const
     return this->tokens.size();
 }
 
+int Lexer::findExact(const String &needle) const
+{
+	for (int i = 0; i < this->tokens.size(); ++i)
+	{
+		if ( needle == this->tokens[i] )
+			return i;
+	}
+
+	return -1;
+}
+
+int Lexer::findPartial(const String &needle) const
+{
+	for (int i = 0; i < this->tokens.size(); ++i)
+	{
+		if ( this->tokens[i].findString(needle) )
+			return i;
+	}
+
+	return -1;
+}
+
 } // end namespace AngelCommunication
 
