@@ -1,4 +1,4 @@
 angel-communication
 ===================
 
-Planned to be an C++ AI communication framework and CLI program. Don't expect much from it, no idea of far I'll get with it.
+Angel Communication is planned to be a C++ AI communication framework and CLI program for Windows, GNU/Linux, and OS X.
