@@ -101,30 +101,38 @@ int main( int argc, char **argv )
 		{
 			if ( text == "quit" )
 			{
+				printf("\rQuiting Angel Communication\n");
+				fflush(stdout);
 #ifndef _WIN32
 				tcsetattr( STDIN_FILENO, TCSANOW, &oldt);
 #endif
 				return 0;
 			}
 
-			printf("\r");
+			if (text.size() > 0)
+			{
+				printf("\r");
+				fflush(stdout);
 
-			user.say( text.c_str() );
+				user.say( text.c_str() );
 
-			user.tell( bot, text.c_str() );
+				user.tell( bot, text.c_str() );
 
-			text.clear();
+				text.clear();
+			}
 		}
 		else if ( ch == 127 ) // Mac OS X 'delete' (usually called backspace)
 		{
 			if ( text.size() > 0 )
 				text.erase(text.size()-1);
 			printf( "\r%s \b", text.c_str() );
+			fflush(stdout);
 		}
 		else if ( ch != EOF && ( ch > 32 || ch == ' ' ) )
 		{
 			text.push_back(ch);
 			putchar(ch);
+			fflush(stdout);
 		}
 
 		bot.think();
