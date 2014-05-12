@@ -1,6 +1,6 @@
 /*
 Angel Communication
-Copyright (C) 2013 Zack Middleton <zturtleman@gmail.com>
+Copyright (C) 2013-2014 Zack Middleton <zturtleman@gmail.com>
 
 This software is provided 'as-is', without any express or implied
 warranty.  In no event will the authors be held liable for any damages
