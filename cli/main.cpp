@@ -24,6 +24,8 @@ freely, subject to the following restrictions:
 #include <stdio.h>
 #ifndef _WIN32
 #include <termios.h>
+#include <sys/select.h>
+#include <unistd.h>
 #endif
 
 #include "../framework/angel.h"
@@ -84,6 +86,7 @@ int main( int argc, char **argv )
 
 	bot.setName( "Angel" );
 	bot.setGender( GENDER_FEMALE );
+	bot.welcome( user );
 
 	std::string text;
 	int ch;

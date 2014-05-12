@@ -44,19 +44,26 @@ void Lexer::clear()
 }
 
 // Adds the tokens to the lexer from text separated by white space.
+// ? and ! are always separated from end of tokens.
 void Lexer::parse(const String &text)
 {
 	int tokenStart = -1;
+	bool marks;
 
     for (size_t i = 0, len = text.getLen()+1; i < len; i++)
     {
+		marks = text[i] == '.' || text[i] == ',' || text[i] == '!' || text[i] == '?';
+
         if (text[i] == ' ' || text[i] == '\t' || text[i] == '\r'
-            || text[i] == '\n' || text[i] == '\0')
+            || text[i] == '\n' || text[i] == '\0' || marks)
         {
             if (tokenStart != -1) {
 				this->tokens.push_back(text.subscript(tokenStart, i - 1));
 				tokenStart = -1;
 			}
+
+			if (marks)
+				this->tokens.push_back(text.subscript(i, i));
         }
         else
         {
@@ -108,6 +115,27 @@ int Lexer::findPartial(const String &needle) const
 	}
 
 	return -1;
+}
+
+String Lexer::toString( unsigned int first, unsigned int last ) const
+{
+	if ( getNumTokens() == 0 )
+		return String();
+
+	String s(this->tokens[first]);
+
+	if ( last > this->tokens.size()-1 )
+	{
+		last = this->tokens.size()-1;
+	}
+
+	for (int i = first+1; i <= last; ++i)
+	{
+		s.append(" ");
+		s.append(this->tokens[i]);
+	}
+
+	return s;
 }
 
 } // end namespace AngelCommunication

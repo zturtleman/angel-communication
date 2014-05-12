@@ -41,7 +41,11 @@ class Persona
 {
 	private:
 		String name;
+		String namePossesive;
 		Gender gender;
+		String messageBate; // next message persona wants to hear
+		bool funReplies;
+		bool waitForReply;
 
 		Lexer tokens; // unprocessed message tokens.
 
@@ -54,8 +58,10 @@ class Persona
 		void setName( const String &name );
 		void setGender( Gender gender );
 
+		void welcome( Persona &target );
 		void tell( Persona &target, String message );
 
+		bool checkSubject( int subject );
 		void think();
 		void say( const String &message );
 };
