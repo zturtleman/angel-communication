@@ -20,6 +20,8 @@ freely, subject to the following restrictions:
 */
 
 #include <stdio.h>
+#include <cstring>
+#include <ctype.h>
 
 #include "persona.h"
 
