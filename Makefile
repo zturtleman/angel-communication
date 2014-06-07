@@ -16,6 +16,7 @@ SRCS= \
 	framework/string.cpp \
 	framework/lexer.cpp \
 	framework/persona.cpp \
+	framework/wordtypes.cpp \
 	\
 	cli/main.cpp
 

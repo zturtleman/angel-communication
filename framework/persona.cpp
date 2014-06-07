@@ -24,8 +24,7 @@ freely, subject to the following restrictions:
 #include <ctype.h>
 
 #include "persona.h"
-
-#define ARRAY_LEN( x ) ( sizeof( x ) / sizeof ( x[0] ) )
+#include "wordtypes.h"
 
 namespace AngelCommunication
 {
@@ -66,8 +65,63 @@ void Persona::welcome( Persona &target )
 void Persona::tell( Persona &target, String message )
 {
 	// FIXME: target needs to store who said the tokens... might want to separate lines too?
-	target.tokens.parse( message );
-	target.waitForReply = false; // got a reply, stop waiting
+	target.told( *this, message );
+}
+
+void Persona::told( Persona & messenger, String message )
+{
+	if ( this->waitForReply ) {
+		WaitReply waitReply = this->waitForReply;
+
+		this->waitForReply = WR_NONE; // got a reply, stop waiting
+
+		if ( waitReply == WR_COMPLETE_LAST && ( WordType( message ) & (WT_CANCEL_QUEST|WT_FILLER) ) ) {
+			this->tokens.clear();
+			say( "Okay, whatever. >.>" );
+			return;
+		}
+		else if ( waitReply == WR_AM_I_RIGHT ) {
+			int type = WordType( message );
+
+			this->tokens.clear();
+
+			if ( (type & (WT_TRUE|WT_FALSE)) == (WT_TRUE|WT_FALSE) ) {
+				say( ":/" );
+			} else if ( type & WT_TRUE ) {
+				say( "Yay" );
+			} else if ( type & WT_FALSE ) {
+				say( "Ug, then fix my code or write better!" );
+			} else if ( type & (WT_CANCEL_QUEST|WT_FILLER) ) {
+				say( "Are you listening to me?" );
+				waitForReply = WR_LISTENING_TO_ME;
+			} else {
+				say( "Guess not..." );
+			}
+			return;
+		}
+		else if ( waitReply == WR_LISTENING_TO_ME ) {
+			int type = WordType( message );
+
+			this->tokens.clear();
+
+			if ( (type & (WT_TRUE|WT_FALSE)) == (WT_TRUE|WT_FALSE) ) {
+				say( "ajskjfajsdhf" );
+			} else if ( type & WT_FALSE ) {
+				say( "...at least you're honest. ._.;" );
+			} else if ( type & WT_TRUE ) {
+				say( "Good, now answer my previous question." );
+				this->waitForReply = WR_AM_I_RIGHT; // HARD CODE HACK
+			} else if ( type & (WT_CANCEL_QUEST|WT_FILLER) ) {
+				say( "Answer me." );
+				this->waitForReply = waitReply; // press harder!
+			} else {
+				say( "Guess not..." );
+			}
+			return;
+		}
+	}
+
+	this->tokens.parse( message );
 }
 
 void Persona::say( const String &message )
@@ -79,25 +133,10 @@ bool Persona::checkSubject( int subject ) {
 
 	bool valid = subject < this->tokens.getNumTokens();
 
-	if ( valid && (this->tokens[subject] == "a" || this->tokens[subject] == "an" || this->tokens[subject] == "the" ) )
+	if ( valid && ( ( WordType( this->tokens[subject] ) & WT_FILLER ) || this->tokens[subject] == "?" ) )
 		valid = false;
 
-	if (!valid)
-		say( "Hmm?" );
-
 	return valid;
-}
-
-const char *fillerWords[] = {
-	"a", "an", "the", "so", "be"
-};
-
-bool fillerWord( const String & word) {
-	for ( int i = 0; i < ARRAY_LEN( fillerWords ); i++ )
-		if ( word == fillerWords[i] )
-			return true;
-
-	return false;
 }
 
 static double diffclock(clock_t clock1,clock_t clock2)
@@ -109,6 +148,7 @@ static double diffclock(clock_t clock1,clock_t clock2)
 
 #define STF_YOUCOMPLETEME	1
 #define STF_STATEMENT		2
+//#define STF_IS_ARE			4 // split at 'is' or 'are', ignore '?' before that token
 struct sentenceType_s {
 	const char	*text;
 	int			subjectStartToken;
@@ -126,9 +166,12 @@ struct sentenceType_s {
 	{ "What is ",	2, 0 }, // What is your name?
 	{ "What's",		1, 0 }, // ...
 	{ "What are ",	2, 0 }, // What are your favorite colors?
+	{ "What goes",	2, 0 }, // What goes BOOM?
+	{ "What does",	2, 0 }, // What does a cat say?
+	//{ "What",		1, STF_IS_ARE }, // What X is Y? What X are Y? What? X is Y?
 
 	// exclimation
-	{ "What the ",	2, 0 }, // What the $word [is $word]
+	{ "What the ",	2, 0 }, // What the $word [is/are $word]
 
 	// non-questions
 	{ "I like ",	2, STF_YOUCOMPLETEME | STF_STATEMENT },
@@ -167,10 +210,10 @@ struct statement_s {
 	const char	*msg, *reply;
 	bool		random;
 } statements[] = {
-	{ "Yes", "No", true },
-	{ "No", "Yes", true },
+	//{ "Yes", "No", true },
+	//{ "No", "Yes", true },
 	{ "Marco", "Polo", true },
-	{ "You", "No you", true },
+	{ "You", "What?", false },
 	{ "Dumb", "No you", false },
 	{ "Your stupid", "*You're stupid. >.>", false },
 	{ "You're stupid", "It's not my fault.", false },
@@ -178,6 +221,7 @@ struct statement_s {
 	{ "You're dumb", "It's not my fault.", false },
 	{ "Dummy", "It's not my fault.", false },
 	{ "Stupid", "It's not my fault.", false },
+	{ "make", "You need to quit before you can rebuilt", false },
 	{ NULL, NULL, false }
 };
 
@@ -199,7 +243,7 @@ void Persona::think() {
 	printf("frametime=%f\n", sinceLastUpdate );
 #endif
 
-	if ( this->waitForReply || !this->tokens.getNumTokens() ) {
+	if ( this->waitForReply != WR_NONE || !this->tokens.getNumTokens() ) {
 		return;
 	}
 
@@ -356,10 +400,17 @@ void Persona::think() {
 		if ( full.icompareTo( sentenceTypes[i].text, strlen(sentenceTypes[i].text) ) == 0 )
 		{
 			int subject, last;
-			bool mine = false, me = false, questionMark;
+			bool mine = false, me = false, questionMark, sarcasmHint = false;
 			bool isAre = ( strstr( sentenceTypes[i].text, "are" ) != NULL );
 
 			subject = sentenceTypes[i].subjectStartToken;
+
+			// MAGIC HACK for What? ...
+			if ( this->tokens[subject] == "?" )
+			{
+				subject++;
+				sarcasmHint = true;
+			}
 
 			if ( this->tokens[subject] == "your" || this->tokens[subject] == this->namePossesive )
 			{
@@ -382,7 +433,7 @@ void Persona::think() {
 			// check if it's all non-sense filler words
 			int w;
 			for ( w = subject; w <= last; w++ ) {
-				if ( !fillerWord( this->tokens[w] ) ){
+				if ( !( WordType( this->tokens[w] ) & WT_FILLER ) ) {
 					break;
 				}
 			}
@@ -416,7 +467,7 @@ void Persona::think() {
 					s.append( this->tokens.toString( 1, sentenceTypes[i].subjectStartToken-1 ) );
 					s.append( " my what?" );
 					say( s );
-					this->waitForReply = true;
+					this->waitForReply = WR_COMPLETE_LAST;
 					// don't this->tokens.clear(); so that we know what reply context is. maybe a temporary hack?
 				} else {
 					//if ( !complimentItem( this->tokens.toString( subject, last ) )) {
@@ -434,7 +485,8 @@ void Persona::think() {
 
 			if ( w > last && !(sentenceTypes[i].flags & STF_YOUCOMPLETEME) ) {
 				say("What are you talking about?");
-				this->tokens.clear();
+				this->waitForReply = WR_COMPLETE_LAST;
+				// don't this->tokens.clear(); so that we know what reply context is. maybe a temporary hack?
 				return;
 			}
 
@@ -475,7 +527,20 @@ void Persona::think() {
 						}
 						else if ( this->tokens[w].icompareTo( "favorite" ) == 0 )
 						{
-							if (!checkSubject(subject)) return;
+							// if subject is "?" remove it so reply is parsed instead next time
+							if ( this->tokens[w+1] == "?" ) {
+								this->tokens.removeToken( w+1 );
+								last--;
+							}
+
+							if ( w+1 > last ) {
+								say( "Favorite what?" );
+								this->waitForReply = WR_COMPLETE_LAST;
+								// don't this->tokens.clear(); so that we know what reply context is. maybe a temporary hack?
+								// need to kill the bad token though
+								return;
+							}
+
 							String s("I don't have a favorite ");
 							s.append( this->tokens.toString( w+1, last ) ); // if use subject instead of w, repeats all the filler words
 							s.append(".");
@@ -525,7 +590,7 @@ void Persona::think() {
 			if ( this->funReplies && !me && !mine && (sentenceTypes[i].flags & STF_STATEMENT)) {
 				String s( "Let's talk about me instead of ");
 				if ( rand() % 3 == 0 ) {
-					s.append( " boring old " );
+					s.append( "boring old " );
 				}
 				s.append( this->tokens.toString( w, last ) ); // if use subject instead of w, repeats all the filler words
 				s.append( "! :)" );
@@ -535,7 +600,7 @@ void Persona::think() {
 			}
 
 			// TODO: be able to talk about whatever this is.
-			String s( "Are you talking about ");
+			String s( "I think you're talking about ");
 			if ( mine )
 				s.append("my ");
 			else if ( me )
@@ -544,9 +609,156 @@ void Persona::think() {
 			s.append( "?" );
 			say( s );
 
+			this->waitForReply = WR_AM_I_RIGHT;
 			this->tokens.clear();
 			return;
 		}
+	}
+
+	int subject, last;
+	bool mine = false, me = false, questionMark, sarcasmHint = false;
+
+	subject = 0;
+
+	if ( this->tokens[subject] == "What" ) {
+		subject++;
+
+		// MAGIC HACK for What? ...
+		if ( this->tokens[subject] == "?" )
+		{
+			subject++;
+			sarcasmHint = true;
+		}
+	}
+
+	if ( this->tokens[subject] == "your" || this->tokens[subject] == this->namePossesive )
+	{
+		subject++;
+		mine = true;
+	}
+	else if ( this->tokens[subject] == "you" || this->tokens[subject] == this->name )
+	{
+		subject++;
+		me = true;
+	}
+
+	last = this->tokens.getNumTokens()-1;
+	questionMark = ( this->tokens[last] == "?" );
+	if ( this->tokens[last] == "?" || this->tokens[last] == "!" || this->tokens[last] == "." )
+	{
+		last--;
+	}
+
+	// check if it's all non-sense filler words
+	int w;
+	for ( w = subject; w <= last; w++ ) {
+		if ( !( WordType( this->tokens[w] ) & WT_FILLER ) ) {
+			break;
+		}
+	}
+
+	int tokenIs = tokens.findExact( "is" );
+	int tokenAre = tokens.findExact( "are" );
+	// Ex: What game is fun? / What games are fun? / What? Games are fun?
+	if ( tokenIs >= 0 || tokenAre >= 0 ) {
+		int firstSplit;
+		int subjectB;
+		bool mineB = false, meB = false;
+
+		firstSplit = tokenIs;
+		if ( tokenIs < 0 || ( tokenAre >= 0 && tokenAre < tokenIs ) ) {
+			firstSplit = tokenAre;
+		}
+
+		subjectB = firstSplit+1;
+
+		if ( this->tokens[subjectB] == "your" || this->tokens[subjectB] == this->namePossesive )
+		{
+			subjectB++;
+			mineB = true;
+		}
+		else if ( this->tokens[subjectB] == "you" || this->tokens[subjectB] == this->name )
+		{
+			subjectB++;
+			meB = true;
+		}
+
+		String partA = this->tokens.toString( w, firstSplit-1 ); // if use subject instead of w, repeats all the filler words
+
+		// check if it's all non-sense filler words
+		int w2;
+		for ( w2 = subjectB; w2 <= last; w2++ ) {
+			if ( !( WordType( this->tokens[w2] ) & WT_FILLER ) ) {
+				break;
+			}
+		}
+
+		if ( w2 > last ) {
+			say("What are you talking about?");
+			this->waitForReply = WR_COMPLETE_LAST;
+			// don't this->tokens.clear(); so that we know what reply context is. maybe a temporary hack?
+			return;
+		}
+
+		String partB = this->tokens.toString( subjectB, last ); // if use w2 instead of subject2, removes the filler words
+
+		// TODO: be able to talk about whatever this is.
+		String s( "I think you're talking about ");
+
+		// oh shit Ex: What time is it?
+		if ( partB == "it" ) {
+			if ( mine || mineB || me || meB ) {
+				if ( firstSplit == subject ) // Ex: You are smart. Say: Me
+					s.append( "me being " );
+				else
+					s.append( "my " );
+			} else if ( firstSplit == tokenIs && w2 == subjectB ) { // if 'is' and no filler words
+				s.append( "the " );
+			}
+			// Ex: You are it?
+			if ( firstSplit == subject ) {
+
+			} else {
+				s.append( partA );
+				s.append( " " );
+			}
+
+			// replace 'it' (aka partB) with...
+			if ( mine || mineB || me || meB ) {
+				if ( firstSplit != subject ) // if haven't already said 'being'
+					s.append( "being " );
+			} else {
+				s.append( "of " );
+			}
+			s.append( "something" );
+
+			s.append( "?" );
+			if ( sarcasmHint )
+				s.append( " With maybe a hint of sarcasm?" );
+		} else {
+			if ( mine || mineB || me || meB ) {
+				if ( firstSplit == subject ) // Ex: You are smart. Say: Me
+					s.append( "me being " );
+				else
+					s.append( "my " );
+			} else if ( firstSplit == tokenIs && w2 == subjectB ) { // if 'is' and no filler words
+				s.append( "a " );
+			}
+			s.append( partB );
+			// Ex: You are smart. Don't say: my smart _are_.
+			if ( firstSplit != subject ) {
+				s.append( " " );
+				s.append( partA );
+			}
+			s.append( "?" );
+			if ( sarcasmHint )
+				s.append( " With maybe a hint of sarcasm?" );
+		}
+		say( s );
+
+		this->waitForReply = WR_AM_I_RIGHT;
+		this->tokens.clear();
+		return;
 	}
 
 	if ( !didStatementGame && this->funReplies ) {

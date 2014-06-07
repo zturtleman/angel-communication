@@ -75,6 +75,14 @@ void Lexer::parse(const String &text)
     }
 }
 
+void Lexer::removeToken(unsigned int index) {
+	if ( index >= this->tokens.size() ) {
+		return;
+	}
+
+	this->tokens.erase( this->tokens.begin() + index );
+}
+
 String Lexer::getToken(unsigned int index) const
 {
     if (index >= this->tokens.size())

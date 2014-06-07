@@ -19,44 +19,27 @@ freely, subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 */
 
-#ifndef ANGEL_LEXER_INCLUDED
-#define ANGEL_LEXER_INCLUDED
-
-#include <vector>
+#ifndef ANGEL_WORDTYPES_INCLUDED
+#define ANGEL_WORDTYPES_INCLUDED
 
 #include "string.h"
+#include "lexer.h"
+
+#define ARRAY_LEN( x ) ( sizeof( x ) / sizeof ( x[0] ) )
 
 namespace AngelCommunication
 {
 
-/*
-    Lexer class
-    Parse and store a string of text as tokens.
-*/
-class Lexer
-{
-    private:
-        std::vector<String> tokens;
+#define WT_FILLER		1 // all tokens don't really mean anything
+#define	WT_CANCEL_QUEST	2 // in response to a question, means doesn't want to answer
 
-    public:
-        Lexer(void);
-		Lexer(const String &text);
-        ~Lexer(void);
-        void clear(void);
-        void parse(const String &text);
-		void removeToken( unsigned int index );
-        size_t getNumTokens(void) const;
-        String getToken(unsigned int index) const;
-        String operator[](unsigned int index) const;
+// Go not to the Elves for counsel, for they will say both no and yes.
+#define	WT_FALSE		4
+#define	WT_TRUE			8
 
-		int findExact(const String &needle) const;
-		int findPartial(const String &needle) const;
+int	WordType( const String & str );
 
-		String toString(unsigned int first = 0, unsigned int last = -1) const;
-};
+}
 
-
-} // end namespace AngelCommunication
-
-#endif // ANGEL_LEXER_INCLUDED
+#endif // ANGEL_WORDTYPES_INCLUDED
 

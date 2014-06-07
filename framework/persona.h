@@ -37,6 +37,16 @@ enum Gender
 	GENDER_MALE
 };
 
+enum WaitReply
+{
+	WR_NONE,
+	WR_COMPLETE_LAST, // user gave incomplete message
+	WR_AM_I_RIGHT, // I like it when you tell me I'm right
+	WR_LISTENING_TO_ME, // are you even listening to me?
+
+	WR_MAX
+};
+
 class Persona
 {
 	private:
@@ -45,7 +55,7 @@ class Persona
 		Gender gender;
 		String messageBate; // next message persona wants to hear
 		bool funReplies;
-		bool waitForReply;
+		WaitReply waitForReply;
 
 		Lexer tokens; // unprocessed message tokens.
 
@@ -60,6 +70,8 @@ class Persona
 
 		void welcome( Persona &target );
 		void tell( Persona &target, String message );
+
+		void told( Persona &messenger, String message );
 
 		bool checkSubject( int subject );
 		void think();
