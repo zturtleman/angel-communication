@@ -19,13 +19,31 @@ freely, subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 */
 
-#ifndef ANGEL_COMMUNICATION_INCLUDED
-#define ANGEL_COMMUNICATION_INCLUDED
+#ifndef ANGEL_ROOM_INCLUDED
+#define ANGEL_ROOM_INCLUDED
 
+#include <vector>
 #include "string.h"
-#include "lexer.h"
-#include "persona.h"
-#include "conversation.h"
 
-#endif // ANGEL_COMMUNICATION_INCLUDED
+namespace AngelCommunication
+{
+
+class Persona;
+
+// List of personas that can hear each other
+class Conversation
+{
+	private:
+		std::vector<Persona*> personas;
+
+	public:
+		void addPersona( Persona *persona );
+		void removePersona( Persona *persona );
+
+		void addMessage( Persona *speaker, const String & message );
+};
+
+}
+
+#endif // ANGEL_ROOM_INCLUDED
 

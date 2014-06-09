@@ -26,6 +26,7 @@ freely, subject to the following restrictions:
 
 #include "string.h"
 #include "lexer.h"
+#include "conversation.h"
 
 namespace AngelCommunication
 {
@@ -50,6 +51,7 @@ enum WaitReply
 class Persona
 {
 	private:
+		bool   autoChat;
 		String name;
 		String namePossesive;
 		Gender gender;
@@ -65,16 +67,26 @@ class Persona
 	public:
 		Persona();
 
+		void think();
+
 		void setName( const String &name );
 		void setGender( Gender gender );
+		void setAutoChat( bool autoChat );
 
-		void welcome( Persona &target );
-		void tell( Persona &target, String message );
+		const String &getName( void ) const;
 
-		void told( Persona &messenger, String message );
 
-		bool checkSubject( int subject );
-		void think();
+		// Conversation communication
+		void receiveMessage( Conversation &con, Persona & speaker, const String &message );
+		//void sendMessage( Conversation &con, const String &message );
+		void personaConnect( Conversation &con, Persona & persona );
+
+
+		// FIXME: will be merged into receiveMessage as/after where not always being talked to
+		void told( Conversation &con, Persona &messenger, String message );
+
+
+		// KILL THIS.
 		void say( const String &message );
 };
 

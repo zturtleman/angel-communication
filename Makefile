@@ -13,6 +13,7 @@ LDFLAGS= -g
 LDLIBS=
 
 SRCS= \
+	framework/conversation.cpp \
 	framework/string.cpp \
 	framework/lexer.cpp \
 	framework/persona.cpp \

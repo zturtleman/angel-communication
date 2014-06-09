@@ -79,14 +79,23 @@ int main( int argc, char **argv )
 	printf("Angel Communication CLI\n");
 	printf("Type 'quit' for exit Angel Communication.\n");
 
-	Persona user, bot;
+	Persona user, bot, bot2;
+	Conversation room;
 
 	user.setName( "User" );
 	user.setGender( GENDER_MALE );
+	user.setAutoChat( false );
 
 	bot.setName( "Angel" );
 	bot.setGender( GENDER_FEMALE );
-	bot.welcome( user );
+
+	bot2.setName( "Sera" );
+	bot2.setGender( GENDER_FEMALE );
+
+	room.addPersona( &bot );
+	room.addPersona( &bot2 );
+	room.addPersona( &user );
+
 
 	std::string text;
 	int ch;
@@ -117,9 +126,7 @@ int main( int argc, char **argv )
 				printf("\r");
 				fflush(stdout);
 
-				user.say( text.c_str() );
-
-				user.tell( bot, text.c_str() );
+				room.addMessage( &user, text.c_str() );
 
 				text.clear();
 			}
@@ -139,6 +146,7 @@ int main( int argc, char **argv )
 		}
 
 		bot.think();
+		bot2.think();
 	}
 
 	// never reached

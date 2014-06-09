@@ -33,6 +33,7 @@ Persona::Persona()
 {
 	this->name = "unknown";
 	this->gender = GENDER_NONE;
+	this->autoChat = true;
 	this->funReplies = true;
 
 	this->lastUpdate = std::clock();
@@ -53,23 +54,40 @@ void Persona::setGender( Gender gender )
 	this->gender = gender;
 }
 
-void Persona::welcome( Persona &target )
+void Persona::setAutoChat( bool autoChat )
 {
+	this->autoChat = autoChat;
+}
+
+const String &Persona::getName( void ) const
+{
+	return this->name;
+}
+
+void Persona::personaConnect( Conversation &con, Persona & persona ) {
+	if ( !this->autoChat )
+		return;
+
 	String s;
-	s = "Welcome ";
-	s.append( target.name );
+	s = "Hi "; // TODO: use random greeting select here.
+	s.append( persona.name );
 	s.append( "." );
-	say( s );
+
+	con.addMessage( this, s );
 }
 
-void Persona::tell( Persona &target, String message )
+void Persona::receiveMessage( Conversation &con, Persona & speaker, const String &message )
 {
-	// FIXME: target needs to store who said the tokens... might want to separate lines too?
-	target.told( *this, message );
+	// FIXME: this should be handled different. could be talking to someone else.
+	told( con, speaker, message );
 }
 
-void Persona::told( Persona & messenger, String message )
+// FIXME: target needs to store who said the tokens... might want to separate lines too?
+void Persona::told( Conversation &con, Persona & messenger, String message )
 {
+	if ( !this->autoChat )
+		return;
+
 	if ( this->waitForReply ) {
 		WaitReply waitReply = this->waitForReply;
 
@@ -77,7 +95,7 @@ void Persona::told( Persona & messenger, String message )
 
 		if ( waitReply == WR_COMPLETE_LAST && ( WordType( message ) & (WT_CANCEL_QUEST|WT_FILLER) ) ) {
 			this->tokens.clear();
-			say( "Okay, whatever. >.>" );
+			con.addMessage( this, "Okay, whatever. >.>" );
 			return;
 		}
 		else if ( waitReply == WR_AM_I_RIGHT ) {
@@ -86,16 +104,16 @@ void Persona::told( Persona & messenger, String message )
 			this->tokens.clear();
 
 			if ( (type & (WT_TRUE|WT_FALSE)) == (WT_TRUE|WT_FALSE) ) {
-				say( ":/" );
+				con.addMessage( this, ":/" );
 			} else if ( type & WT_TRUE ) {
-				say( "Yay" );
+				con.addMessage( this, "Yay" );
 			} else if ( type & WT_FALSE ) {
-				say( "Ug, then fix my code or write better!" );
+				con.addMessage( this, "Ug, then fix my code or write better!" );
 			} else if ( type & (WT_CANCEL_QUEST|WT_FILLER) ) {
-				say( "Are you listening to me?" );
+				con.addMessage( this, "Are you listening to me?" );
 				waitForReply = WR_LISTENING_TO_ME;
 			} else {
-				say( "Guess not..." );
+				con.addMessage( this, "Guess not..." );
 			}
 			return;
 		}
@@ -105,17 +123,17 @@ void Persona::told( Persona & messenger, String message )
 			this->tokens.clear();
 
 			if ( (type & (WT_TRUE|WT_FALSE)) == (WT_TRUE|WT_FALSE) ) {
-				say( "ajskjfajsdhf" );
+				con.addMessage( this, "ajskjfajsdhf" );
 			} else if ( type & WT_FALSE ) {
-				say( "...at least you're honest. ._.;" );
+				con.addMessage( this, "...at least you're honest. ._.;" );
 			} else if ( type & WT_TRUE ) {
-				say( "Good, now answer my previous question." );
+				con.addMessage( this, "Good, now answer my previous question." );
 				this->waitForReply = WR_AM_I_RIGHT; // HARD CODE HACK
 			} else if ( type & (WT_CANCEL_QUEST|WT_FILLER) ) {
-				say( "Answer me." );
+				con.addMessage( this, "Answer me." );
 				this->waitForReply = waitReply; // press harder!
 			} else {
-				say( "Guess not..." );
+				con.addMessage( this, "Guess not..." );
 			}
 			return;
 		}
@@ -126,17 +144,7 @@ void Persona::told( Persona & messenger, String message )
 
 void Persona::say( const String &message )
 {
-	printf("%s> %s\n", this->name.c_str(), message.c_str() );
-}
-
-bool Persona::checkSubject( int subject ) {
-
-	bool valid = subject < this->tokens.getNumTokens();
-
-	if ( valid && ( ( WordType( this->tokens[subject] ) & WT_FILLER ) || this->tokens[subject] == "?" ) )
-		valid = false;
-
-	return valid;
+	printf("LEGACY: %s> %s\n", this->name.c_str(), message.c_str() );
 }
 
 static double diffclock(clock_t clock1,clock_t clock2)
@@ -226,6 +234,11 @@ struct statement_s {
 };
 
 void Persona::think() {
+	if ( !this->autoChat ) {
+		this->tokens.clear();
+		return;
+	}
+
 #if 0 // ZTM: doesn't work if using select sleep in CLI main.cpp ...
 	std::clock_t time = std::clock();
 
