@@ -64,87 +64,31 @@ const String &Persona::getName( void ) const
 	return this->name;
 }
 
-void Persona::personaConnect( Conversation &con, Persona & persona ) {
+void Persona::personaConnect( Conversation *con, Persona *persona ) {
 	if ( !this->autoChat )
 		return;
 
 	String s;
 	s = "Hi "; // TODO: use random greeting select here.
-	s.append( persona.name );
+	s.append( persona->name );
 	s.append( "." );
 
-	con.addMessage( this, s );
+	// FIXME: disabled so bots don't get stuck replying to each other from the get go.
+	//con->addMessage( this, s );
 }
 
-void Persona::receiveMessage( Conversation &con, Persona & speaker, const String &message )
-{
-	// FIXME: this should be handled different. could be talking to someone else.
-	told( con, speaker, message );
-}
-
-// FIXME: target needs to store who said the tokens... might want to separate lines too?
-void Persona::told( Conversation &con, Persona & messenger, String message )
+void Persona::receiveMessage( Conversation *con, Persona *speaker, const String &text )
 {
 	if ( !this->autoChat )
 		return;
 
-	if ( this->waitForReply ) {
-		WaitReply waitReply = this->waitForReply;
+#if 0 // ZTM: This causes message->con to be NULL, but spliting to two lines works???
+	this->messages.push_back( new Message( con, speaker, text ) );
+#else
+	Message *m = new Message( con, speaker, text );
 
-		this->waitForReply = WR_NONE; // got a reply, stop waiting
-
-		if ( waitReply == WR_COMPLETE_LAST && ( WordType( message ) & (WT_CANCEL_QUEST|WT_FILLER) ) ) {
-			this->tokens.clear();
-			con.addMessage( this, "Okay, whatever. >.>" );
-			return;
-		}
-		else if ( waitReply == WR_AM_I_RIGHT ) {
-			int type = WordType( message );
-
-			this->tokens.clear();
-
-			if ( (type & (WT_TRUE|WT_FALSE)) == (WT_TRUE|WT_FALSE) ) {
-				con.addMessage( this, ":/" );
-			} else if ( type & WT_TRUE ) {
-				con.addMessage( this, "Yay" );
-			} else if ( type & WT_FALSE ) {
-				con.addMessage( this, "Ug, then fix my code or write better!" );
-			} else if ( type & (WT_CANCEL_QUEST|WT_FILLER) ) {
-				con.addMessage( this, "Are you listening to me?" );
-				waitForReply = WR_LISTENING_TO_ME;
-			} else {
-				con.addMessage( this, "Guess not..." );
-			}
-			return;
-		}
-		else if ( waitReply == WR_LISTENING_TO_ME ) {
-			int type = WordType( message );
-
-			this->tokens.clear();
-
-			if ( (type & (WT_TRUE|WT_FALSE)) == (WT_TRUE|WT_FALSE) ) {
-				con.addMessage( this, "ajskjfajsdhf" );
-			} else if ( type & WT_FALSE ) {
-				con.addMessage( this, "...at least you're honest. ._.;" );
-			} else if ( type & WT_TRUE ) {
-				con.addMessage( this, "Good, now answer my previous question." );
-				this->waitForReply = WR_AM_I_RIGHT; // HARD CODE HACK
-			} else if ( type & (WT_CANCEL_QUEST|WT_FILLER) ) {
-				con.addMessage( this, "Answer me." );
-				this->waitForReply = waitReply; // press harder!
-			} else {
-				con.addMessage( this, "Guess not..." );
-			}
-			return;
-		}
-	}
-
-	this->tokens.parse( message );
-}
-
-void Persona::say( const String &message )
-{
-	printf("LEGACY: %s> %s\n", this->name.c_str(), message.c_str() );
+	this->messages.push_back( m );
+#endif
 }
 
 static double diffclock(clock_t clock1,clock_t clock2)
@@ -235,7 +179,7 @@ struct statement_s {
 
 void Persona::think() {
 	if ( !this->autoChat ) {
-		this->tokens.clear();
+		// TODO: drop messages and expectations?
 		return;
 	}
 
@@ -256,85 +200,151 @@ void Persona::think() {
 	printf("frametime=%f\n", sinceLastUpdate );
 #endif
 
-	if ( this->waitForReply != WR_NONE || !this->tokens.getNumTokens() ) {
-		return;
+	// TODO: limit how fast to process messages?
+	size_t numMessages = this->messages.size();
+
+	for ( size_t i = 0; i < numMessages; /**/ ) {
+		if ( processMessage( this->messages[i] ) ) {
+			delete this->messages[i];
+			this->messages.erase( this->messages.begin() + i );
+			--numMessages;
+		} else {
+			++i;
+		}
 	}
+}
 
-#if 0
-	std::vector<String> sentencesTypes;
-	sentencesTypes.push_back("Can $noun $verb?");
-	sentencesTypes.push_back("Could $noun $verb?");
-	sentencesTypes.push_back("Would $noun $verb?");
-	sentencesTypes.push_back("What the $noun $verb?");
-	sentencesTypes.push_back("What is $noun?"); // posesive your/Angel's
-	sentencesTypes.push_back("What are $noun?"); // posesive your/Angel's
-#endif
+bool Persona::processMessage( Message *message )
+{
+	Conversation *con = message->con;
+	Persona *from = message->from;
+	String full( message->text );
+	Lexer tokens( full );
 
-	String full = this->tokens.toString();
+	// ignore pointless auto chat (otherwise bots get stuck repeating it...)
+	if ( full == "I don't know how to parse that statement, sorry." )
+		return true;
 
-	if ( this->tokens[0] == this->name ) {
+	if ( tokens[0] == this->name ) {
 		bool enable = false;
 		String s;
 
-		if ( this->tokens[1] == "stop" ) {
+		if ( tokens[1] == "stop" ) {
 			s = "Stopped";
 			enable = false;
-		} else if ( this->tokens[1] == "disable" ) {
+		} else if ( tokens[1] == "disable" ) {
 			s = "Diabled";
 			enable = false;
-		} else if ( this->tokens[1] == "enable" ) {
+		} else if ( tokens[1] == "enable" ) {
 			s = "Enabled";
 			enable = true;
 		}
 
-		if ( this->tokens[2] == "fun" ) {
+		if ( tokens[2] == "fun" ) {
 			this->funReplies = enable;
 		}
 
 		if ( !s.isEmpty() ) {
 			s.append( " " );
-			s.append( this->tokens.toString( 2 ) );
+			s.append( tokens.toString( 2 ) );
 			s.append( " as you requested." );
-			say( s );
-			this->tokens.clear();
-			return;
+			con->addMessage( this, s );
+			return true;
 		}
 
-		if ( this->tokens[1] == "set" ) {
-			if ( this->tokens[2] == "name" ) {
-				this->setName( this->tokens.toString( 3 ) );
+		if ( tokens[1] == "set" ) {
+			if ( tokens[2] == "name" ) {
+				this->setName( tokens.toString( 3 ) );
 			}
-			if ( this->tokens[2] == "gender" ) {
-				if ( tolower( this->tokens[3][0] ) == 'f' ) {
+			if ( tokens[2] == "gender" ) {
+				if ( tolower( tokens[3][0] ) == 'f' ) {
 					this->setGender( GENDER_FEMALE );
-				} else if ( tolower( this->tokens[3][0] ) == 'm' ) {
+				} else if ( tolower( tokens[3][0] ) == 'm' ) {
 					this->setGender( GENDER_MALE );
 				}
 			}
 
 			s.append( "Set " );
-			s.append( this->tokens[2] );
+			s.append( tokens[2] );
 			s.append( " to " );
-			s.append( this->tokens.toString( 3 ) );
+			s.append( tokens.toString( 3 ) );
 			s.append( " as you requested." );
-			say( s );
-			this->tokens.clear();
-			return;
+			con->addMessage( this, s );
+			return true;
 		}
 	}
 
 	bool didStatementGame = false;
-	if ( !this->messageBate.isEmpty() ) {
-		didStatementGame = true;
-		if ( this->messageBate == full ) {
-			say("yay!");
-			this->messageBate = "";
-			this->tokens.clear();
-			return;
-		} else {
-			say("._.");
-			this->messageBate = "";
-			// keep going instead of ignoring me!
+
+	// check if expecting something from this persona
+	// FIXME: I think the erase code does not work correct in this loop and may crash. See processMessage for fix.
+	// FIXME: Need to delete expectation before erasing pointer.
+	for ( std::vector<Expectation*>::iterator it = this->expectations.begin(); it != this->expectations.end(); ++it ) {
+		// compare pointers
+		if ( (*it)->con == con && (*it)->from == from )
+		{
+			WaitReply waitReply = (*it)->waitForReply;
+
+			if ( waitReply == WR_COMPLETE_LAST && ( WordType( full ) & (WT_CANCEL_QUEST|WT_FILLER) ) ) {
+				con->addMessage( this, "Okay, whatever. >.>" );
+				this->expectations.erase( it );
+				return true;
+			}
+			else if ( waitReply == WR_AM_I_RIGHT ) {
+				int type = WordType( full );
+
+				if ( (type & (WT_TRUE|WT_FALSE)) == (WT_TRUE|WT_FALSE) ) {
+					con->addMessage( this, ":/" );
+				} else if ( type & WT_TRUE ) {
+					con->addMessage( this, "Yay" );
+				} else if ( type & WT_FALSE ) {
+					con->addMessage( this, "Ug, then fix my code or write better!" );
+				} else if ( type & (WT_CANCEL_QUEST|WT_FILLER) ) {
+					con->addMessage( this, "Are you listening to me?" );
+					// mutate the expectation
+					(*it)->waitForReply = WR_LISTENING_TO_ME;
+					return true;
+				} else {
+					con->addMessage( this, "Guess not..." );
+				}
+
+				this->expectations.erase( it );
+				return true;
+			}
+			else if ( waitReply == WR_LISTENING_TO_ME ) {
+				int type = WordType( full );
+
+				if ( (type & (WT_TRUE|WT_FALSE)) == (WT_TRUE|WT_FALSE) ) {
+					con->addMessage( this, "ajskjfajsdhf" );
+				} else if ( type & WT_FALSE ) {
+					con->addMessage( this, "...at least you're honest. ._.;" );
+				} else if ( type & WT_TRUE ) {
+					con->addMessage( this, "Good, now answer my previous question." );
+					// mutate the expectation
+					(*it)->waitForReply = WR_AM_I_RIGHT; // HARD CODE HACK
+					return true;
+				} else if ( type & (WT_CANCEL_QUEST|WT_FILLER) ) {
+					con->addMessage( this, "Answer me." );
+					return true; // press harder! (don't release expectation)
+				} else {
+					con->addMessage( this, "Guess not..." );
+				}
+
+				this->expectations.erase( it );
+				return true;
+			} else if ( waitReply == WR_SPECIFIED ) {
+				didStatementGame = true;
+				if ( (*it)->expstr == full ) {
+					con->addMessage( this, "yay!" );
+					this->expectations.erase( it );
+					return true;
+				} else {
+					con->addMessage( this, "._." );
+					this->expectations.erase( it );
+					// keep going instead of ignoring message
+					break; // FIXME: Added break because I think erase code needs to be fixed.
+				}
+			}
 		}
 	}
 
@@ -342,9 +352,8 @@ void Persona::think() {
 	{
 		if ( full == statements[i].msg )
 		{
-			say( statements[i].reply );
-			this->tokens.clear();
-			return;
+			con->addMessage( this, statements[i].reply );
+			return true;
 		}
 	}
 
@@ -355,7 +364,7 @@ void Persona::think() {
 			bool leaving = ( greetingTypes[i].flags & GTF_LEAVING );
 			if ( ( greetingTypes[i].flags & GTF_SPECIAL ) && rand() & 1 ) {
 				// repeat whatever they said, which could be a special greeting.
-				say( greetingTypes[i].text );
+				con->addMessage( this, greetingTypes[i].text );
 			}
 			else
 #if 1
@@ -367,9 +376,9 @@ void Persona::think() {
 					continue;
 				if ( greetingTypes[r].text == NULL ) {
 					// repeat whatever they said, which could be a special greeting.
-					say( greetingTypes[i].text );
+					con->addMessage( this, greetingTypes[i].text );
 				} else {
-					say( greetingTypes[r].text );
+					con->addMessage( this, greetingTypes[r].text );
 				}
 				break;
 			}
@@ -380,31 +389,30 @@ void Persona::think() {
 				switch (greetings)
 				{
 					case 0:
-						say( "Hello! ^_^" );	
+						con->addMessage( this, "Hello! ^_^" );
 						break;
 						
 					case 1:
-						say( "Hello.. -.-" );	
+						con->addMessage( this, "Hello.. -.-" );
 						break;
 						
 					case 2:
-						say( ">.>" );	
+						con->addMessage( this, ">.>" );
 						break;
 						
 					case 3:
-						say( "-.-" );	
+						con->addMessage( this, "-.-" );
 						break;
 						
 					default:
-						say( "..." );
+						con->addMessage( this, "..." );
 						break;
 				}
 				
 				greetings++;
 			}
 #endif
-			this->tokens.clear();
-			return;
+			return true;
 		}
 	}
 
@@ -413,32 +421,31 @@ void Persona::think() {
 		if ( full.icompareTo( sentenceTypes[i].text, strlen(sentenceTypes[i].text) ) == 0 )
 		{
 			int subject, last;
-			bool mine = false, me = false, questionMark, sarcasmHint = false;
+			bool mine = false, me = false, questionMark;
 			bool isAre = ( strstr( sentenceTypes[i].text, "are" ) != NULL );
 
 			subject = sentenceTypes[i].subjectStartToken;
 
 			// MAGIC HACK for What? ...
-			if ( this->tokens[subject] == "?" )
+			/*if ( tokens[subject] == "?" )
 			{
 				subject++;
-				sarcasmHint = true;
-			}
+			}*/
 
-			if ( this->tokens[subject] == "your" || this->tokens[subject] == this->namePossesive )
+			if ( tokens[subject] == "your" || tokens[subject] == this->namePossesive )
 			{
 				subject++;
 				mine = true;
 			}
-			else if ( this->tokens[subject] == "you" || this->tokens[subject] == this->name )
+			else if ( tokens[subject] == "you" || tokens[subject] == this->name )
 			{
 				subject++;
 				me = true;
 			}
 
-			last = this->tokens.getNumTokens()-1;
-			questionMark = ( this->tokens[last] == "?" );
-			if ( this->tokens[last] == "?" || this->tokens[last] == "!" || this->tokens[last] == "." )
+			last = tokens.getNumTokens()-1;
+			questionMark = ( tokens[last] == "?" );
+			if ( tokens[last] == "?" || tokens[last] == "!" || tokens[last] == "." )
 			{
 				last--;
 			}
@@ -446,7 +453,7 @@ void Persona::think() {
 			// check if it's all non-sense filler words
 			int w;
 			for ( w = subject; w <= last; w++ ) {
-				if ( !( WordType( this->tokens[w] ) & WT_FILLER ) ) {
+				if ( !( WordType( tokens[w] ) & WT_FILLER ) ) {
 					break;
 				}
 			}
@@ -456,15 +463,14 @@ void Persona::think() {
 				// nothing after 'you'?
 				if ( subject > last ) {
 					String s( "I ");
-					s.append( this->tokens.toString( 1, sentenceTypes[i].subjectStartToken-1 ) );
+					s.append( tokens.toString( 1, sentenceTypes[i].subjectStartToken-1 ) );
 					s.append( " you too" );
 					s.append( questionMark ? "?" : "." );
 					if ( rand() % 3 == 0 ) {
 						s.append( " >_<" );
 					}
-					say( s );
-					this->tokens.clear();
-					return;
+					con->addMessage( this, s );
+					return true;
 				} else {
 					// Ex: I like you face. reply as if user said "your" instead of "you"
 					me = false;
@@ -477,30 +483,29 @@ void Persona::think() {
 				// nothing after 'your'?
 				if ( subject > last ) {
 					String s( "You ");
-					s.append( this->tokens.toString( 1, sentenceTypes[i].subjectStartToken-1 ) );
+					s.append( tokens.toString( 1, sentenceTypes[i].subjectStartToken-1 ) );
 					s.append( " my what?" );
-					say( s );
-					this->waitForReply = WR_COMPLETE_LAST;
-					// don't this->tokens.clear(); so that we know what reply context is. maybe a temporary hack?
+					con->addMessage( this, s );
+					// FIXME: create expectation (save message text)
+					//this->waitForReply = WR_COMPLETE_LAST;
 				} else {
-					//if ( !complimentItem( this->tokens.toString( subject, last ) )) {
+					//if ( !complimentItem( tokens.toString( subject, last ) )) {
 						String s( "I might ");
-						s.append( this->tokens.toString( 1, sentenceTypes[i].subjectStartToken-1 ) );
+						s.append( tokens.toString( 1, sentenceTypes[i].subjectStartToken-1 ) );
 						s.append( " my " );
-						s.append( this->tokens.toString( w, last ) );
+						s.append( tokens.toString( w, last ) );
 						s.append( " if I knew what it was." );
 					//}
-					say( s );
-					this->tokens.clear();
+					con->addMessage( this, s );
 				}
-				return;
+				return true;
 			}
 
 			if ( w > last && !(sentenceTypes[i].flags & STF_YOUCOMPLETEME) ) {
-				say("What are you talking about?");
-				this->waitForReply = WR_COMPLETE_LAST;
-				// don't this->tokens.clear(); so that we know what reply context is. maybe a temporary hack?
-				return;
+				con->addMessage( this, "What are you talking about?" );
+				// FIXME: create expectation (save message text)
+				//this->waitForReply = WR_COMPLETE_LAST;
+				return true;
 			}
 
 			// TODO: figure out how many tokens are the noun. >.>
@@ -509,7 +514,7 @@ void Persona::think() {
 			if ( this->funReplies && ( !(sentenceTypes[i].flags & STF_STATEMENT) || questionMark ) ) {
 				if ( me || mine ) {
 					if ( !isAre ) {
-						if ( this->tokens[w].icompareTo( "name" ) == 0 )
+						if ( tokens[w].icompareTo( "name" ) == 0 )
 						{
 							static int toldTimes = 0;
 							String s;
@@ -519,70 +524,68 @@ void Persona::think() {
 									s = "My name is ";
 									s.append(this->name);
 									s.append(".");
-									say( s );
 									break;
 								case 1:
 									s = this->name;
 									s.append(".");
-									say( s );
 									break;
 								case 2:
 									s = this->name;
 									s.append("...");
-									say( s );
 									break;
 								default:
 									//TODO: set mood annoyed?
-									say( "..." );
+									s = "...";
 									break;
 							}
+							con->addMessage( this, s );
 							toldTimes++;
 						}
-						else if ( this->tokens[w].icompareTo( "favorite" ) == 0 )
+						else if ( tokens[w].icompareTo( "favorite" ) == 0 )
 						{
 							// if subject is "?" remove it so reply is parsed instead next time
-							if ( this->tokens[w+1] == "?" ) {
-								this->tokens.removeToken( w+1 );
+							if ( tokens[w+1] == "?" ) {
+								tokens.removeToken( w+1 );
 								last--;
 							}
 
 							if ( w+1 > last ) {
-								say( "Favorite what?" );
-								this->waitForReply = WR_COMPLETE_LAST;
-								// don't this->tokens.clear(); so that we know what reply context is. maybe a temporary hack?
-								// need to kill the bad token though
-								return;
+								con->addMessage( this, "Favorite what?" );
+
+								// FIXME: create expectation (save message text)
+								//this->waitForReply = WR_COMPLETE_LAST;
+								return true;
 							}
 
 							String s("I don't have a favorite ");
-							s.append( this->tokens.toString( w+1, last ) ); // if use subject instead of w, repeats all the filler words
+							s.append( tokens.toString( w+1, last ) ); // if use subject instead of w, repeats all the filler words
 							s.append(".");
-							say( s );
+							con->addMessage( this, s );
 						}
 						else
 						{
 							String s("haha ");
-							s.append( this->tokens.toString( w, last ) ); // if use subject instead of w, repeats all the filler words
+							s.append( tokens.toString( w, last ) ); // if use subject instead of w, repeats all the filler words
 							s.append("?");
-							say( s );
+							con->addMessage( this, s );
 						}
 					} else {
 						// Ex: How are you?
-						if (this->tokens[subject] == "?")
+						if (tokens[subject] == "?")
 						{
-							say( "Good, busy. How are you?" );
+							con->addMessage( this, "Good, busy. How are you?" );
 						}
 						else
 						{
 							String s("Hmm, I don't know about ");
-							s.append(this->tokens[subject]);
-							if (this->tokens[subject] == "a" || this->tokens[subject] == "an" )
+							s.append(tokens[subject]);
+							if (tokens[subject] == "a" || tokens[subject] == "an" )
 							{
 								s.append( " " );
-								s.append(this->tokens[subject+1]);
+								s.append(tokens[subject+1]);
 							}
 							s.append(".");
-							say( s );
+							con->addMessage( this, s );
 						}
 					}
 				}
@@ -591,13 +594,12 @@ void Persona::think() {
 					{
 						// if not talking about me, then I don't know.
 						String s("Let's talk about me instead of ");
-						s.append( this->tokens.toString( w, last ) ); // if use subject instead of w, repeats all the filler words
+						s.append( tokens.toString( w, last ) ); // if use subject instead of w, repeats all the filler words
 						s.append(", okay?");
-						say( s );
+						con->addMessage( this, s );
 					}
 				}
-				this->tokens.clear();
-				return;
+				return true;
 			}
 
 			if ( this->funReplies && !me && !mine && (sentenceTypes[i].flags & STF_STATEMENT)) {
@@ -605,11 +607,10 @@ void Persona::think() {
 				if ( rand() % 3 == 0 ) {
 					s.append( "boring old " );
 				}
-				s.append( this->tokens.toString( w, last ) ); // if use subject instead of w, repeats all the filler words
+				s.append( tokens.toString( w, last ) ); // if use subject instead of w, repeats all the filler words
 				s.append( "! :)" );
-				say( s );
-				this->tokens.clear();
-				return;
+				con->addMessage( this, s );
+				return true;
 			}
 
 			// TODO: be able to talk about whatever this is.
@@ -618,13 +619,13 @@ void Persona::think() {
 				s.append("my ");
 			else if ( me )
 				s.append("me "); // not proper american English... not sure what it should be.
-			s.append( this->tokens.toString( w, last ) ); // if use subject instead of w, repeats all the filler words
+			s.append( tokens.toString( w, last ) ); // if use subject instead of w, repeats all the filler words
 			s.append( "?" );
-			say( s );
+			con->addMessage( this, s );
 
-			this->waitForReply = WR_AM_I_RIGHT;
-			this->tokens.clear();
-			return;
+			// FIXME: create expectation (don't save message text)
+			//message.waitForReply = WR_AM_I_RIGHT;
+			return true;
 		}
 	}
 
@@ -633,31 +634,31 @@ void Persona::think() {
 
 	subject = 0;
 
-	if ( this->tokens[subject] == "What" ) {
+	if ( tokens[subject] == "What" ) {
 		subject++;
 
 		// MAGIC HACK for What? ...
-		if ( this->tokens[subject] == "?" )
+		if ( tokens[subject] == "?" )
 		{
 			subject++;
 			sarcasmHint = true;
 		}
 	}
 
-	if ( this->tokens[subject] == "your" || this->tokens[subject] == this->namePossesive )
+	if ( tokens[subject] == "your" || tokens[subject] == this->namePossesive )
 	{
 		subject++;
 		mine = true;
 	}
-	else if ( this->tokens[subject] == "you" || this->tokens[subject] == this->name )
+	else if ( tokens[subject] == "you" || tokens[subject] == this->name )
 	{
 		subject++;
 		me = true;
 	}
 
-	last = this->tokens.getNumTokens()-1;
-	questionMark = ( this->tokens[last] == "?" );
-	if ( this->tokens[last] == "?" || this->tokens[last] == "!" || this->tokens[last] == "." )
+	last = tokens.getNumTokens()-1;
+	questionMark = ( tokens[last] == "?" );
+	if ( tokens[last] == "?" || tokens[last] == "!" || tokens[last] == "." )
 	{
 		last--;
 	}
@@ -665,7 +666,7 @@ void Persona::think() {
 	// check if it's all non-sense filler words
 	int w;
 	for ( w = subject; w <= last; w++ ) {
-		if ( !( WordType( this->tokens[w] ) & WT_FILLER ) ) {
+		if ( !( WordType( tokens[w] ) & WT_FILLER ) ) {
 			break;
 		}
 	}
@@ -685,35 +686,36 @@ void Persona::think() {
 
 		subjectB = firstSplit+1;
 
-		if ( this->tokens[subjectB] == "your" || this->tokens[subjectB] == this->namePossesive )
+		if ( tokens[subjectB] == "your" || tokens[subjectB] == this->namePossesive )
 		{
 			subjectB++;
 			mineB = true;
 		}
-		else if ( this->tokens[subjectB] == "you" || this->tokens[subjectB] == this->name )
+		else if ( tokens[subjectB] == "you" || tokens[subjectB] == this->name )
 		{
 			subjectB++;
 			meB = true;
 		}
 
-		String partA = this->tokens.toString( w, firstSplit-1 ); // if use subject instead of w, repeats all the filler words
+		String partA = tokens.toString( w, firstSplit-1 ); // if use subject instead of w, repeats all the filler words
 
 		// check if it's all non-sense filler words
 		int w2;
 		for ( w2 = subjectB; w2 <= last; w2++ ) {
-			if ( !( WordType( this->tokens[w2] ) & WT_FILLER ) ) {
+			if ( !( WordType( tokens[w2] ) & WT_FILLER ) ) {
 				break;
 			}
 		}
 
 		if ( w2 > last ) {
-			say("What are you talking about?");
-			this->waitForReply = WR_COMPLETE_LAST;
-			// don't this->tokens.clear(); so that we know what reply context is. maybe a temporary hack?
-			return;
+			con->addMessage( this, "What are you talking about?" );
+
+			// FIXME: create expectation (save message text)
+			//this->waitForReply = WR_COMPLETE_LAST;
+			return true;
 		}
 
-		String partB = this->tokens.toString( subjectB, last ); // if use w2 instead of subject2, removes the filler words
+		String partB = tokens.toString( subjectB, last ); // if use w2 instead of subject2, removes the filler words
 
 		// TODO: be able to talk about whatever this is.
 		String s( "I think you're talking about ");
@@ -767,11 +769,11 @@ void Persona::think() {
 			if ( sarcasmHint )
 				s.append( " With maybe a hint of sarcasm?" );
 		}
-		say( s );
+		con->addMessage( this, s );
 
-		this->waitForReply = WR_AM_I_RIGHT;
-		this->tokens.clear();
-		return;
+		// FIXME: create expectation (don't save message text)
+		//message.waitForReply = WR_AM_I_RIGHT;
+		return true;
 	}
 
 	if ( !didStatementGame && this->funReplies ) {
@@ -780,15 +782,21 @@ void Persona::think() {
 			int st = rand() / (float)RAND_MAX * ARRAY_LEN( statements )-1;
 			if ( !statements[st].random )
 				continue;
-			say( statements[st].msg );
-			this->messageBate.setData( statements[st].reply );
-			this->tokens.clear();
-			return;
+			con->addMessage( this, statements[st].msg );
+
+#if 0 // ZTM: this is bad for Message. probably broken here too?
+			this->expectations.push_back( new Expectation( con, from, WR_SPECIFIED, statements[st].reply ) );
+#else
+			Expectation *expect = new Expectation( con, from, WR_SPECIFIED, statements[st].reply );
+			this->expectations.push_back( expect );
+#endif
+
+			return true;
 		}
 	}
 
-	say( "I don't know how to parse that statement, sorry." );
-	this->tokens.clear();
+	con->addMessage( this, "I don't know how to parse that statement, sorry." );
+	return true;
 }
 
 } // end namespace AngelCommunication

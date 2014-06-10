@@ -856,6 +856,7 @@ String String::replaceENV()
 
             i += 2; // Skip "$(" when reading env name.
 
+            // FIXME: what if there is no ')'...
             for (size = 0; this->data[i] != ')'; ++size, ++i)
             {
                 envName.append(this->data[i]);

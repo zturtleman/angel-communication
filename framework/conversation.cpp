@@ -49,7 +49,7 @@ void Conversation::addPersona( Persona *persona )
 		if ( this->personas[i] == persona )
 			continue;
 
-		this->personas[i]->personaConnect( *this, *persona );
+		this->personas[i]->personaConnect( this, persona );
 	}
 }
 
@@ -75,7 +75,7 @@ void Conversation::addMessage( Persona *speaker, const String & message )
 		if ( this->personas[i] == speaker )
 			continue;
 
-		this->personas[i]->receiveMessage( *this, *speaker, message );
+		this->personas[i]->receiveMessage( this, speaker, message );
 	}
 }
 

@@ -41,12 +41,16 @@ enum Gender
 enum WaitReply
 {
 	WR_NONE,
+	WR_SPECIFIED, // expects a specific reply
 	WR_COMPLETE_LAST, // user gave incomplete message
 	WR_AM_I_RIGHT, // I like it when you tell me I'm right
 	WR_LISTENING_TO_ME, // are you even listening to me?
 
 	WR_MAX
 };
+
+class Expectation;
+class Message;
 
 class Persona
 {
@@ -55,11 +59,10 @@ class Persona
 		String name;
 		String namePossesive;
 		Gender gender;
-		String messageBate; // next message persona wants to hear
 		bool funReplies;
-		WaitReply waitForReply;
 
-		Lexer tokens; // unprocessed message tokens.
+		std::vector<Expectation*> expectations; // expected reply information
+		std::vector<Message*> messages; // unprocessed messages
 
 		std::clock_t lastUpdate;
 		//int			thinkDelay;
@@ -68,6 +71,7 @@ class Persona
 		Persona();
 
 		void think();
+		bool processMessage( Message *message );
 
 		void setName( const String &name );
 		void setGender( Gender gender );
@@ -77,17 +81,63 @@ class Persona
 
 
 		// Conversation communication
-		void receiveMessage( Conversation &con, Persona & speaker, const String &message );
-		//void sendMessage( Conversation &con, const String &message );
-		void personaConnect( Conversation &con, Persona & persona );
+		void receiveMessage( Conversation *con, Persona *speaker, const String &text );
+		void personaConnect( Conversation *con, Persona *persona );
+};
 
+class Expectation
+{
+	public:
+		Conversation	*con;
+		Persona			*from;
+		WaitReply		waitForReply;	// expectation type
+		String			expstr;			// varies by expectation type
 
-		// FIXME: will be merged into receiveMessage as/after where not always being talked to
-		void told( Conversation &con, Persona &messenger, String message );
+		Expectation( Conversation *c, Persona *f, WaitReply wr )
+			: expstr()
+		{
+			this->con = con;
+			this->from = from;
+			this->waitForReply = wr;
+		}
 
+		Expectation( Conversation *c, Persona *f, WaitReply wr, const String &str )
+			: expstr( str )
+		{
+			this->con = con;
+			this->from = from;
+			this->waitForReply = wr;
+		}
 
-		// KILL THIS.
-		void say( const String &message );
+		Expectation operator=(const Expectation &e)
+		{
+			this->con = e.con;
+			this->from = e.from;
+			this->waitForReply = e.waitForReply;
+			this->expstr = e.expstr;
+			return *this;
+		}
+};
+
+class Message
+{
+	public:
+		Conversation	*con;
+		Persona			*from;
+		String			text; // unprocessed message tokens.
+
+		Message( Conversation *c, Persona *f, const String & text )
+			: con( c ), from( f ), text( text )
+		{
+		}
+
+		Message operator=(const Message &m)
+		{
+			this->con = m.con;
+			this->from = m.from;
+			this->text = m.text;
+			return *this;
+		}
 };
 
 }
