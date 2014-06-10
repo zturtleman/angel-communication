@@ -814,7 +814,7 @@ bool Persona::processMessage( Message *message )
 		return true;
 	}
 
-	if ( !didStatementGame && this->funReplies ) {
+	if ( con->numPersonas() == 2 && !didStatementGame && this->funReplies ) {
 		for ( int i = 0; i < ARRAY_LEN( statements ); i++ ) {
 			// fail to find anything to say, so just mess with them.
 			int st = rand() / (float)RAND_MAX * ARRAY_LEN( statements )-1;

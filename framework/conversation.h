@@ -37,6 +37,8 @@ class Conversation
 		std::vector<Persona*> personas;
 
 	public:
+		size_t numPersonas();
+
 		void addPersona( Persona *persona );
 		void removePersona( Persona *persona );
 

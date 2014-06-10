@@ -27,6 +27,10 @@ freely, subject to the following restrictions:
 namespace AngelCommunication
 {
 
+size_t Conversation::numPersonas( ) {
+	return this->personas.size();
+}
+
 void Conversation::addPersona( Persona *persona )
 {
 	assert( persona != NULL );
