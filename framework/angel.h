@@ -27,5 +27,8 @@ freely, subject to the following restrictions:
 #include "persona.h"
 #include "conversation.h"
 
+// functions that must exist outside the framework (aka imported functions)
+void ANGELC_PrintMessage( const AngelCommunication::Conversation *con, const AngelCommunication::Persona *speaker, const char *message );
+
 #endif // ANGEL_COMMUNICATION_INCLUDED
 

@@ -32,6 +32,10 @@ freely, subject to the following restrictions:
 
 using namespace AngelCommunication;
 
+void ANGELC_PrintMessage( const AngelCommunication::Conversation *con, const AngelCommunication::Persona *speaker, const char *message ) {
+	printf("%s> %s\n", speaker->getName().c_str(), message );
+}
+
 bool charAvailable( float waitInSeconds ) {
 	fd_set rfds;
 	struct timeval tv;

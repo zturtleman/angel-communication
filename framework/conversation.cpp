@@ -23,6 +23,7 @@ freely, subject to the following restrictions:
 #include <cassert>
 #include "conversation.h"
 #include "persona.h"
+#include "angel.h" // include imported functions
 
 namespace AngelCommunication
 {
@@ -71,8 +72,7 @@ void Conversation::removePersona( Persona *persona )
 
 void Conversation::addMessage( Persona *speaker, const String & message )
 {
-	// FIXME: showing message needs to be done outside the framework.
-	printf("%s> %s\n", speaker->getName().c_str(), message.c_str() );
+	ANGELC_PrintMessage( this, speaker, message.c_str() );
 
 	for ( int i = 0; i < this->personas.size(); i++ )
 	{
