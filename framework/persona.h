@@ -83,6 +83,9 @@ class Persona
 		// Conversation communication
 		void receiveMessage( Conversation *con, Persona *speaker, const String &text );
 		void personaConnect( Conversation *con, Persona *persona );
+
+		void addExpectation( Conversation *c, Persona *f, WaitReply wr );
+		void addExpectation( Conversation *c, Persona *f, WaitReply wr, const String &str );
 };
 
 class Expectation
@@ -93,20 +96,18 @@ class Expectation
 		WaitReply		waitForReply;	// expectation type
 		String			expstr;			// varies by expectation type
 
+		// NOTE: putting things in ": blah(b), blah(b)" list is magical,
+		//       just assigning vars doesn't work correct, causes con to be NULL and from to be wrong
+		//       when storing in a vector<type*>.
+		//       FIXME: Why???
 		Expectation( Conversation *c, Persona *f, WaitReply wr )
-			: expstr()
+			: con( c ), from ( f ), waitForReply( wr ), expstr()
 		{
-			this->con = con;
-			this->from = from;
-			this->waitForReply = wr;
 		}
 
 		Expectation( Conversation *c, Persona *f, WaitReply wr, const String &str )
-			: expstr( str )
+			: con( c ), from ( f ), waitForReply( wr ), expstr( str )
 		{
-			this->con = con;
-			this->from = from;
-			this->waitForReply = wr;
 		}
 
 		Expectation operator=(const Expectation &e)

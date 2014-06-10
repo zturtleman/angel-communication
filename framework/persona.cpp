@@ -82,13 +82,7 @@ void Persona::receiveMessage( Conversation *con, Persona *speaker, const String 
 	if ( !this->autoChat )
 		return;
 
-#if 0 // ZTM: This causes message->con to be NULL, but spliting to two lines works???
 	this->messages.push_back( new Message( con, speaker, text ) );
-#else
-	Message *m = new Message( con, speaker, text );
-
-	this->messages.push_back( m );
-#endif
 }
 
 static double diffclock(clock_t clock1,clock_t clock2)
@@ -277,18 +271,30 @@ bool Persona::processMessage( Message *message )
 	bool didStatementGame = false;
 
 	// check if expecting something from this persona
-	// FIXME: I think the erase code does not work correct in this loop and may crash. See processMessage for fix.
-	// FIXME: Need to delete expectation before erasing pointer.
-	for ( std::vector<Expectation*>::iterator it = this->expectations.begin(); it != this->expectations.end(); ++it ) {
-		// compare pointers
-		if ( (*it)->con == con && (*it)->from == from )
-		{
-			WaitReply waitReply = (*it)->waitForReply;
+	size_t numExp = this->expectations.size();
+	for ( size_t i = 0; i < numExp; /**/ ) {
 
-			if ( waitReply == WR_COMPLETE_LAST && ( WordType( full ) & (WT_CANCEL_QUEST|WT_FILLER) ) ) {
-				con->addMessage( this, "Okay, whatever. >.>" );
-				this->expectations.erase( it );
-				return true;
+		// compare pointers
+		if ( this->expectations[i]->con == con && this->expectations[i]->from == from )
+		{
+			WaitReply waitReply = this->expectations[i]->waitForReply;
+			bool freeExp = true;
+			bool freeMessage = true;
+
+			if ( waitReply == WR_COMPLETE_LAST ) {
+				if ( ( WordType( full ) & (WT_CANCEL_QUEST|WT_FILLER) ) ) {
+					con->addMessage( this, "Okay, whatever. >.>" );
+					// free exp and message
+				} else {
+					String mergedText = this->expectations[i]->expstr;
+					mergedText.append( full );
+					full = mergedText;
+
+					tokens.parse( full );
+
+					// free exp, but still use message reply code
+					freeMessage = false;
+				}
 			}
 			else if ( waitReply == WR_AM_I_RIGHT ) {
 				int type = WordType( full );
@@ -302,14 +308,11 @@ bool Persona::processMessage( Message *message )
 				} else if ( type & (WT_CANCEL_QUEST|WT_FILLER) ) {
 					con->addMessage( this, "Are you listening to me?" );
 					// mutate the expectation
-					(*it)->waitForReply = WR_LISTENING_TO_ME;
-					return true;
+					this->expectations[i]->waitForReply = WR_LISTENING_TO_ME;
+					freeExp = false;
 				} else {
 					con->addMessage( this, "Guess not..." );
 				}
-
-				this->expectations.erase( it );
-				return true;
 			}
 			else if ( waitReply == WR_LISTENING_TO_ME ) {
 				int type = WordType( full );
@@ -321,30 +324,46 @@ bool Persona::processMessage( Message *message )
 				} else if ( type & WT_TRUE ) {
 					con->addMessage( this, "Good, now answer my previous question." );
 					// mutate the expectation
-					(*it)->waitForReply = WR_AM_I_RIGHT; // HARD CODE HACK
+					this->expectations[i]->waitForReply = WR_AM_I_RIGHT; // HARD CODE HACK
+					freeExp = false;
 					return true;
 				} else if ( type & (WT_CANCEL_QUEST|WT_FILLER) ) {
-					con->addMessage( this, "Answer me." );
-					return true; // press harder! (don't release expectation)
+					String s(from->getName());
+					s.append(", answer me.");
+					con->addMessage( this, s );
+					// press harder! (don't release expectation)
+					freeExp = false;
+					return true;
 				} else {
 					con->addMessage( this, "Guess not..." );
 				}
-
-				this->expectations.erase( it );
-				return true;
 			} else if ( waitReply == WR_SPECIFIED ) {
 				didStatementGame = true;
-				if ( (*it)->expstr == full ) {
+				if ( this->expectations[i]->expstr == full ) {
 					con->addMessage( this, "yay!" );
-					this->expectations.erase( it );
-					return true;
 				} else {
 					con->addMessage( this, "._." );
-					this->expectations.erase( it );
 					// keep going instead of ignoring message
-					break; // FIXME: Added break because I think erase code needs to be fixed.
+					freeMessage = false;
 				}
 			}
+
+			if ( freeExp ) {
+				delete this->expectations[i];
+				this->expectations.erase( this->expectations.begin() + i );
+				--numExp;
+			} else {
+				++i;
+			}
+
+			if ( freeMessage ) {
+				return true;
+			} else {
+				// FIXME: what if there are multiple expectation?
+				break;
+			}
+		} else {
+			++i;
 		}
 	}
 
@@ -486,8 +505,8 @@ bool Persona::processMessage( Message *message )
 					s.append( tokens.toString( 1, sentenceTypes[i].subjectStartToken-1 ) );
 					s.append( " my what?" );
 					con->addMessage( this, s );
-					// FIXME: create expectation (save message text)
-					//this->waitForReply = WR_COMPLETE_LAST;
+					// create expectation (save message text)
+					addExpectation( con, from, WR_COMPLETE_LAST, full );
 				} else {
 					//if ( !complimentItem( tokens.toString( subject, last ) )) {
 						String s( "I might ");
@@ -503,8 +522,8 @@ bool Persona::processMessage( Message *message )
 
 			if ( w > last && !(sentenceTypes[i].flags & STF_YOUCOMPLETEME) ) {
 				con->addMessage( this, "What are you talking about?" );
-				// FIXME: create expectation (save message text)
-				//this->waitForReply = WR_COMPLETE_LAST;
+				// create expectation (save message text)
+				addExpectation( con, from, WR_COMPLETE_LAST, full );
 				return true;
 			}
 
@@ -552,8 +571,8 @@ bool Persona::processMessage( Message *message )
 							if ( w+1 > last ) {
 								con->addMessage( this, "Favorite what?" );
 
-								// FIXME: create expectation (save message text)
-								//this->waitForReply = WR_COMPLETE_LAST;
+								// create expectation (save message text)
+								addExpectation( con, from, WR_COMPLETE_LAST, tokens.toString() );
 								return true;
 							}
 
@@ -623,8 +642,8 @@ bool Persona::processMessage( Message *message )
 			s.append( "?" );
 			con->addMessage( this, s );
 
-			// FIXME: create expectation (don't save message text)
-			//message.waitForReply = WR_AM_I_RIGHT;
+			// create expectation (don't save message text)
+			addExpectation( con, from, WR_AM_I_RIGHT );
 			return true;
 		}
 	}
@@ -710,8 +729,8 @@ bool Persona::processMessage( Message *message )
 		if ( w2 > last ) {
 			con->addMessage( this, "What are you talking about?" );
 
-			// FIXME: create expectation (save message text)
-			//this->waitForReply = WR_COMPLETE_LAST;
+			// create expectation (save message text)
+			addExpectation( con, from, WR_COMPLETE_LAST, full );
 			return true;
 		}
 
@@ -771,8 +790,8 @@ bool Persona::processMessage( Message *message )
 		}
 		con->addMessage( this, s );
 
-		// FIXME: create expectation (don't save message text)
-		//message.waitForReply = WR_AM_I_RIGHT;
+		// create expectation (don't save message text)
+		addExpectation( con, from, WR_AM_I_RIGHT );
 		return true;
 	}
 
@@ -783,20 +802,23 @@ bool Persona::processMessage( Message *message )
 			if ( !statements[st].random )
 				continue;
 			con->addMessage( this, statements[st].msg );
-
-#if 0 // ZTM: this is bad for Message. probably broken here too?
-			this->expectations.push_back( new Expectation( con, from, WR_SPECIFIED, statements[st].reply ) );
-#else
-			Expectation *expect = new Expectation( con, from, WR_SPECIFIED, statements[st].reply );
-			this->expectations.push_back( expect );
-#endif
-
+			addExpectation( con, from, WR_SPECIFIED, statements[st].reply );
 			return true;
 		}
 	}
 
 	con->addMessage( this, "I don't know how to parse that statement, sorry." );
 	return true;
+}
+
+void Persona::addExpectation( Conversation *c, Persona *f, WaitReply wr )
+{
+	this->expectations.push_back( new Expectation( c, f, wr ) );
+}
+
+void Persona::addExpectation( Conversation *c, Persona *f, WaitReply wr, const String &str )
+{
+	this->expectations.push_back( new Expectation( c, f, wr, str ) );
 }
 
 } // end namespace AngelCommunication
