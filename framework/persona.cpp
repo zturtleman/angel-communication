@@ -131,25 +131,26 @@ struct sentenceType_s {
 #define GTF_SPECIAL 2 // one does not just say Merry Christmas whenever.
 struct greetingType_s {
 	const char	*text;
-	int flags;
+	int			subjectStartToken;
+	int			flags;
 } greetingTypes[] = {
-	{ "Hi", 0 },
-	{ "Hello", 0 },
-	{ "'ello", 0 },
-	{ "ello", 0 },
-	{ "Hey", 0 }, // not always a greeting...
-	{ "ohai", 0 },
-	{ "ohayou", 0 }, // Ohayou Gozaimasu
-	{ "I acknowledge your existence", 0 },
-	{ "Welcome", GTF_SPECIAL }, // not really special but don't want saying a lot
-	{ "Good morning", GTF_SPECIAL },
-	{ "Good afternoon", GTF_SPECIAL },
-	{ "Good evening", GTF_SPECIAL },
-	{ "Good night", GTF_LEAVING },
-	{ "gn", GTF_LEAVING },
-	{ "Merry Christmas", GTF_SPECIAL },
+	{ "Hi",				1,	0 },
+	{ "Hello",			1,	0 },
+	{ "'ello",			1,	0 },
+	{ "ello",			1,	0 },
+	{ "Hey",			1,	0 }, // not always a greeting...
+	{ "ohai",			1,	0 },
+	{ "ohayou",			1,	0 }, // Ohayou Gozaimasu
+	{ "I acknowledge your existence", 4, 0 },
+	{ "Welcome",		1,	GTF_SPECIAL }, // not really special but don't want saying a lot
+	{ "Good morning",	2,	GTF_SPECIAL },
+	{ "Good afternoon",	2,	GTF_SPECIAL },
+	{ "Good evening",	2,	GTF_SPECIAL },
+	{ "Good night",		2,	GTF_LEAVING },
+	{ "gn",				1,	GTF_LEAVING },
+	{ "Merry Christmas",2,	GTF_SPECIAL },
 
-	{ NULL, 0 } // for random, NULL means repeat whatever greeting person said (including special ones).
+	{ NULL, 0, 0 } // for random, NULL means repeat whatever greeting person said (including special ones).
 };
 
 struct statement_s {
@@ -218,6 +219,8 @@ bool Persona::processMessage( Message *message )
 	// ignore pointless auto chat (otherwise bots get stuck repeating it...)
 	if ( full == "I don't know how to parse that statement, sorry." )
 		return true;
+
+	// TODO: ignore messages that start with someone elses name?
 
 	if ( tokens[0] == this->name ) {
 		bool enable = false;
@@ -381,6 +384,15 @@ bool Persona::processMessage( Message *message )
 		if ( full.icompareTo( greetingTypes[i].text, strlen(greetingTypes[i].text) ) == 0 )
 		{
 			bool leaving = ( greetingTypes[i].flags & GTF_LEAVING );
+
+			// Ex: Hi Bob
+			if ( greetingTypes[i].subjectStartToken < tokens.getNumTokens() ) {
+				if ( tokens[greetingTypes[i].subjectStartToken].icompareTo( this->name ) != 0 ) {
+					// greeted someone else, ignore.
+					return true;
+				}
+			}
+
 			if ( ( greetingTypes[i].flags & GTF_SPECIAL ) && rand() & 1 ) {
 				// repeat whatever they said, which could be a special greeting.
 				con->addMessage( this, greetingTypes[i].text );
@@ -393,12 +405,19 @@ bool Persona::processMessage( Message *message )
 					continue;
 				if ( ( greetingTypes[r].flags & GTF_LEAVING ) != leaving )
 					continue;
+
+				String s;
+
 				if ( greetingTypes[r].text == NULL ) {
 					// repeat whatever they said, which could be a special greeting.
-					con->addMessage( this, greetingTypes[i].text );
+					s = greetingTypes[i].text;
 				} else {
-					con->addMessage( this, greetingTypes[r].text );
+					s = greetingTypes[r].text;
 				}
+
+				s.append( " " );
+				s.append( from->getName() );
+				con->addMessage( this, s );
 				break;
 			}
 #else
