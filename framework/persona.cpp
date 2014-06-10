@@ -74,7 +74,8 @@ void Persona::personaConnect( Conversation *con, Persona *persona ) {
 	s.append( "." );
 
 	// FIXME: disabled so bots don't get stuck replying to each other from the get go.
-	//con->addMessage( this, s );
+	if ( !persona->autoChat )
+		con->addMessage( this, s );
 }
 
 void Persona::receiveMessage( Conversation *con, Persona *speaker, const String &text )
