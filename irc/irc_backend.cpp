@@ -142,6 +142,7 @@ void IrcClient::Update() {
 				char *command = NULL;
 				char *where = NULL;
 				char *message = NULL;
+				char *ctcp = NULL;
 
 				char *head = buf, *oldhead = buf, *end;
 				for ( int i = 0; i < 3; i++ ) {
@@ -168,12 +169,26 @@ void IrcClient::Update() {
 						case 2:
 							where = oldhead;
 
-							// CTCP is formatted as :\x01VERSION\x01
+							// CTCP is formatted as :\x01VERSION\x01, :\x01PING 1403415318\x01, etc
 							if ( head[0] == ':' && head[1] == 0x01 ) {
-								//ctcp = head+2;
-								//end = strchr( ctcp, 0x01 );
-								//if ( end ) { *end = '\0'; }
-								//else { ctcp = NULL; } // unknown data
+								ctcp = head+2;
+
+								end = strchr( ctcp, 0x01 );
+								if ( end ) {
+									*end = '\0';
+
+									// split args from command
+									end = strchr( ctcp, ' ' );
+									if ( end ) {
+										*end = '\0';
+										message = end+1;
+									}
+								}
+								else
+								{
+									ctcp = NULL;
+									message = NULL;
+								}
 							}
 							// message
 							else if ( head[0] == ':' ) {
@@ -185,26 +200,68 @@ void IrcClient::Update() {
 					oldhead = head;
 				}
 
-				printf( "user=[%s], command=[%s], where=[%s], message=[%s]\n", user, command, where, message );
+				printf( "user=[%s], command=[%s], where=[%s], ctcp=[%s], message=[%s]\n", user, command, where, ctcp, message );
 
 				if ( !command || !where ) {
 					continue;
 				}
 
 				if ( !strcmp( command, "001" ) ) {
-					sprintf(msg, "JOIN %s\r\n", this->channel );
+					sprintf( msg, "JOIN %s\r\n", this->channel );
 					send( sock, msg, strlen(msg), 0 );
 				}
 				else if ( !strcmp( command, "PRIVMSG" ) ) {
-					char *channelName;
+					if ( ctcp ) {
+						// handle "ACTION" /me messages
+						if ( !strcmp( ctcp, "ACTION" ) ) {
+							char *channelName;
 
-					if ( !strcmp( where, nick ) ) {
-						channelName = NULL; // direct message
+							if ( !strcmp( where, nick ) ) {
+								channelName = NULL; // direct message
+							} else {
+								channelName = where;
+							}
+
+							sprintf( msg, "%s %s", user, message ); // TODO: use /me instead of username? bots don't handle either case right now.
+							ANGEL_IRC_ReceiveMessage( nick, user, channelName, msg );
+						}
+						else if ( !strcmp( ctcp, "PING" ) ) {
+							sprintf( msg, "NOTICE %s :\001PING %s\001\r\n", user, message );
+							send( sock, msg, strlen(msg), 0 );
+						}
+						// FIXME?: missing timezone, though time info doesn't really matter for bots currently...
+						else if ( !strcmp( ctcp, "TIME" ) ) {
+							time_t curtime;
+							struct tm *loctime;
+
+							curtime = time (NULL);
+							loctime = localtime (&curtime);
+
+							sprintf( msg, "NOTICE %s :\001TIME :%s\001\r\n", user, asctime (loctime) );
+							send( sock, msg, strlen(msg), 0 );
+						}
+						else if ( !strcmp( ctcp, "VERSION" ) ) {
+							sprintf( msg, "NOTICE %s :\001VERSION %s\001\r\n", user, ANGEL_IRC_VERSION );
+							send( sock, msg, strlen(msg), 0 );
+						}
+						else {
+							// this might be a bad idea... I almost missed adding ACTION which resulted in bot messaging anyone who used /me
+							sprintf( msg, "NOTICE %s :\001ERRMSG %s : Query is unknown\001\r\n", user, ctcp );
+							send( sock, msg, strlen(msg), 0 );
+
+							printf("WARNING: Received unknown CTCP tag name (%s) from %s, acked ERRMSG back\n", ctcp, user);
+						}
 					} else {
-						channelName = where;
-					}
+						char *channelName;
 
-					ANGEL_IRC_ReceiveMessage( nick, user, channelName, message );
+						if ( !strcmp( where, nick ) ) {
+							channelName = NULL; // direct message
+						} else {
+							channelName = where;
+						}
+
+						ANGEL_IRC_ReceiveMessage( nick, user, channelName, message );
+					}
 				}
 			}
 		}
