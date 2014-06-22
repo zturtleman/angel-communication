@@ -64,12 +64,12 @@ class Persona
 		std::vector<Expectation*> expectations; // expected reply information
 		std::vector<Message*> messages; // unprocessed messages
 
-		std::clock_t lastUpdate;
-		//int			thinkDelay;
+		std::time_t nextUpdateTime;
 
 	public:
 		Persona();
 
+		float getSleepTime();
 		void think();
 		bool processMessage( Message *message );
 

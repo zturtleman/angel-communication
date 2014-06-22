@@ -106,7 +106,20 @@ int main( int argc, char **argv )
 
 	while (1)
 	{
-		if ( charAvailable( 5.0f ) )
+		// sleep until bots wants to think or key press. wait a max of 5 seconds.
+		float delay = 5, botDelay;
+
+		botDelay = bot.getSleepTime();
+		if ( botDelay < delay ) {
+			delay = botDelay;
+		}
+
+		botDelay = bot2.getSleepTime();
+		if ( botDelay < delay ) {
+			delay = botDelay;
+		}
+
+		if ( charAvailable( delay ) )
 			ch = getchar();
 		else
 			ch = EOF;

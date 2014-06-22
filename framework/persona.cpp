@@ -36,7 +36,7 @@ Persona::Persona()
 	this->autoChat = true;
 	this->funReplies = true;
 
-	this->lastUpdate = std::clock();
+	this->nextUpdateTime = std::time( NULL ) + 2;
 }
 
 void Persona::setName( const String &name )
@@ -83,14 +83,23 @@ void Persona::receiveMessage( Conversation *con, Persona *speaker, const String 
 	if ( !this->autoChat )
 		return;
 
+	std::time_t currentTime = std::time( NULL );
+
+	// wait 2 seconds between updates.
+	if ( currentTime >= this->nextUpdateTime ) {
+		this->nextUpdateTime = time( NULL ) + 2;
+	}
+
 	this->messages.push_back( new Message( con, speaker, text ) );
 }
 
-static double diffclock(clock_t clock1,clock_t clock2)
-{
-    double diffticks=clock1-clock2;
-    double diffms=(diffticks)/(CLOCKS_PER_SEC/1000);
-    return diffms;
+float Persona::getSleepTime() {
+	std::time_t currentTime = std::time( NULL );
+
+	if ( currentTime >= this->nextUpdateTime )
+		return 0;
+
+	return this->nextUpdateTime - currentTime;
 }
 
 #define STF_YOUCOMPLETEME	1
@@ -179,22 +188,9 @@ void Persona::think() {
 		return;
 	}
 
-#if 0 // ZTM: doesn't work if using select sleep in CLI main.cpp ...
-	std::clock_t time = std::clock();
-
-	// msec
-	double sinceLastUpdate = diffclock(time, this->lastUpdate);
-
-	// wait 2 seconds between updates.
-	if ( sinceLastUpdate < 2 ) {
-		printf("skip think, frametime=%f\n", sinceLastUpdate );
+	if ( getSleepTime() > 0 ) {
 		return;
 	}
-
-	this->lastUpdate = time;
-
-	printf("frametime=%f\n", sinceLastUpdate );
-#endif
 
 	// TODO: limit how fast to process messages?
 	size_t numMessages = this->messages.size();
