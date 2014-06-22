@@ -22,10 +22,13 @@ freely, subject to the following restrictions:
 #include <iostream>
 #include <cmath>
 #include <stdio.h>
+#include <signal.h>
 #ifndef _WIN32
 #include <termios.h>
 #include <sys/select.h>
 #include <unistd.h>
+
+struct termios oldt;
 #endif
 
 #include "../framework/angel.h"
@@ -64,10 +67,23 @@ bool charAvailable( float waitInSeconds ) {
 	return 0;
 }
 
+void cliShutdown() {
+	printf("\rQuiting Angel Communication\n");
+	fflush(stdout);
+#ifndef _WIN32
+	tcsetattr( STDIN_FILENO, TCSANOW, &oldt);
+#endif
+}
+
+void sighandler( int signum ) {
+	cliShutdown();
+	exit( 1 );
+}
+
 int main( int argc, char **argv )
 {
 #ifndef _WIN32
-	struct termios oldt, newt;
+	struct termios newt;
 
 	tcgetattr( STDIN_FILENO, &oldt);
 	newt = oldt;
@@ -82,6 +98,9 @@ int main( int argc, char **argv )
 
 	printf("Angel Communication CLI\n");
 	printf("Type 'quit' for exit Angel Communication.\n");
+
+	signal(SIGINT, sighandler);
+	signal(SIGTERM, sighandler);
 
 	Persona user, bot, bot2;
 	Conversation room;
@@ -130,11 +149,7 @@ int main( int argc, char **argv )
 		{
 			if ( text == "quit" )
 			{
-				printf("\rQuiting Angel Communication\n");
-				fflush(stdout);
-#ifndef _WIN32
-				tcsetattr( STDIN_FILENO, TCSANOW, &oldt);
-#endif
+				cliShutdown();
 				return 0;
 			}
 

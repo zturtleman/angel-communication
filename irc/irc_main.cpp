@@ -22,6 +22,7 @@ freely, subject to the following restrictions:
 #include <iostream>
 #include <cmath>
 #include <stdio.h>
+#include <signal.h>
 
 #include "irc_backend.h"
 
@@ -96,7 +97,6 @@ void ANGEL_IRC_ReceiveMessage( const char *to, const char *from, const char *cha
 
 void ANGELC_PrintMessage( const AngelCommunication::Conversation *con, const AngelCommunication::Persona *speaker, const char *message )
 {
-	int i;
 	IrcClient *irc = NULL;
 
 	for ( int b = 0; b < numBots; b++ ) {
@@ -110,7 +110,7 @@ void ANGELC_PrintMessage( const AngelCommunication::Conversation *con, const Ang
 	if ( !irc )
 		return;
 
-	for ( i = 0; i < numCons; i++ ) {
+	for ( int i = 0; i < numCons; i++ ) {
 		if ( &conlist[i].con == con ) {
 			irc->SayTo( conlist[i].name.c_str(), message );
 			break;
@@ -118,10 +118,21 @@ void ANGELC_PrintMessage( const AngelCommunication::Conversation *con, const Ang
 	}
 }
 
+void sighandler( int signum ) {
+	for ( int i = 0; i < numBots; i++ ) {
+		bot_irc[i].Disconnect( "Bye" );
+	}
+
+	exit( 1 );
+}
+
 int main( int argc, char **argv )
 {
 	printf("Angel Communication IRC\n");
 	printf("Use ctrl-C to exit.\n");
+
+	signal(SIGINT, sighandler);
+	signal(SIGTERM, sighandler);
 
 	user.setName( "User" );
 	user.setGender( GENDER_MALE );

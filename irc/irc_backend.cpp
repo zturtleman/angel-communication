@@ -40,7 +40,7 @@ IrcClient::IrcClient()
 
 IrcClient::~IrcClient()
 {
-	Disconnect( "Killed" );
+	Disconnect( "Process killed" );
 	if ( nick ) {
 		free( nick );
 		nick = NULL;
@@ -288,6 +288,8 @@ void IrcClient::Disconnect( const char *reason ) {
 	sock = 0;
 
 	printf( "Disconnected (%s)\n", reason );
+
+	connected = false;
 }
 
 void IrcClient::SayTo( const char *target, const char *message ) {

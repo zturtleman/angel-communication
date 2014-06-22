@@ -32,10 +32,6 @@ void ANGEL_IRC_ReceiveMessage( const char *to, const char *from, const char *cha
 
 class IrcClient {
 	private:
-		//String server; // i.e., irc.example.com
-		//String port; // i.e., "6667"
-		//String nick;
-
 		bool connected;
 		char *nick;
 		char *channel;
@@ -51,7 +47,6 @@ class IrcClient {
 		void Disconnect( const char *reason );
 
 		void SayTo( const char *target, const char *message );
-
 };
 
 #endif // ANGEL_IRC_BACKEND_INCLUDED
