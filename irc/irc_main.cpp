@@ -44,10 +44,13 @@ Persona bots[MAX_BOTS];
 int numBots = 0;
 
 #define MAX_CONS 8
-struct {
-	String		name;
-	Conversation con;
-} conlist[MAX_CONS];
+class ConList {
+	public:
+		String		name;
+		Conversation con;
+};
+
+ConList conlist[MAX_CONS];
 
 int numCons = 0;
 
