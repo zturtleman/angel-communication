@@ -12,17 +12,22 @@ CXXFLAGS= -g
 LDFLAGS= -g
 LDLIBS=
 
-SRCS= \
+FRAMEWORK_SRCS = \
 	framework/conversation.cpp \
 	framework/string.cpp \
 	framework/lexer.cpp \
 	framework/persona.cpp \
-	framework/wordtypes.cpp \
-	\
+	framework/wordtypes.cpp
+
+CLI_SRCS = $(FRAMEWORK_SRCS) \
 	cli/main.cpp
 
-OBJS=$(subst .cpp,.o,$(SRCS))
-BACKUP=$(subst .cpp,.cpp~,$(SRCS))
+IRC_SRCS = $(FRAMEWORK_SRCS) \
+	irc/irc_main.cpp \
+	irc/irc_backend.cpp
+
+CLI_OBJS=$(subst .cpp,.o,$(CLI_SRCS))
+IRC_OBJS=$(subst .cpp,.o,$(IRC_SRCS))
 
 ifeq ($(PLATFORM),mingw32)
 	BINEXT=.exe
@@ -30,22 +35,25 @@ else
 	BINEXT=
 endif
 
-all: angelcli$(BINEXT)
+all: angelcli$(BINEXT) angelirc$(BINEXT)
 
-angelcli$(BINEXT): $(OBJS)
-	$(CXX) $(LDFLAGS) -o $@ $(OBJS) $(LDLIBS)
+angelcli$(BINEXT): $(CLI_OBJS)
+	$(CXX) $(LDFLAGS) -o $@ $(CLI_OBJS) $(LDLIBS)
+
+angelirc$(BINEXT): $(IRC_OBJS)
+	$(CXX) $(LDFLAGS) -o $@ $(IRC_OBJS) $(LDLIBS)
 
 depend: .depend
 
-.depend: $(SRCS)
+.depend: $(CLI_SRCS) $(IRC_SRCS) $(FRAMEWORK_SRCS)
 	$(RM) ./.depend
 	$(CXX) $(CXXFLAGS) -MM $^>>./.depend;
 
 clean:
-	$(RM) $(OBJS)
+	$(RM) $(CLI_OBJS) $(IRC_OBJS)
 
 dist-clean: clean
-	$(RM) angelcli$(BINEXT) ./.depend
+	$(RM) angelcli$(BINEXT) angelirc$(BINEXT) ./.depend
 
 include ./.depend
 
