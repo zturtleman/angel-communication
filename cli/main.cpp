@@ -41,7 +41,7 @@ void ANGELC_PrintMessage( const AngelCommunication::Conversation *con, const Ang
 
 bool charAvailable( float waitInSeconds ) {
 	fd_set rfds;
-	struct timeval tv;
+	struct timeval tv, *ptv;
 	int retval;
 
 	double fractpart, intpart;
@@ -50,13 +50,20 @@ bool charAvailable( float waitInSeconds ) {
 	FD_ZERO(&rfds);
 	FD_SET(0, &rfds);
 
-	fractpart = modf(waitInSeconds , &intpart);
+	if ( waitInSeconds >= 0 ) {
+		fractpart = modf(waitInSeconds , &intpart);
 
-	/* Wait up to half a second. */
-	tv.tv_sec = intpart;
-	tv.tv_usec = 1000000.0f * fractpart;
+		/* Wait up to half a second. */
+		tv.tv_sec = intpart;
+		tv.tv_usec = 1000000.0f * fractpart;
 
-	retval = select(1, &rfds, NULL, NULL, &tv);
+		ptv = &tv;
+	} else {
+		// wait for key press, ignore time
+		ptv = NULL;
+	}
+
+	retval = select(1, &rfds, NULL, NULL, ptv);
 
 	if (retval == -1)
 		return 0;
@@ -125,16 +132,16 @@ int main( int argc, char **argv )
 
 	while (1)
 	{
-		// sleep until bots wants to think or key press. wait a max of 5 seconds.
-		float delay = 5, botDelay;
+		// sleep until bots wants to think or key press.
+		float delay = -1, botDelay;
 
 		botDelay = bot.getSleepTime();
-		if ( botDelay < delay ) {
+		if ( delay < 0 || ( botDelay >= 0 && botDelay < delay ) ) {
 			delay = botDelay;
 		}
 
 		botDelay = bot2.getSleepTime();
-		if ( botDelay < delay ) {
+		if ( delay < 0 || ( botDelay >= 0 && botDelay < delay ) ) {
 			delay = botDelay;
 		}
 

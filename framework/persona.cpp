@@ -96,8 +96,9 @@ void Persona::receiveMessage( Conversation *con, Persona *speaker, const String 
 float Persona::getSleepTime() {
 	std::time_t currentTime = std::time( NULL );
 
+	// waiting for new messages. doesn't care when next update is.
 	if ( currentTime >= this->nextUpdateTime )
-		return 0;
+		return -1;
 
 	return this->nextUpdateTime - currentTime;
 }
