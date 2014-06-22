@@ -26,7 +26,7 @@ freely, subject to the following restrictions:
 
 void ANGEL_IRC_ReceiveMessage( const char *to, const char *from, const char *channel, const char *message );
 
-// Version reported to other IRC clients
+// Version reported to other IRC clients / shown in terminal at start up
 // FIXME?: version is suppose to be formatted as 'client:version:platform'?
 #define ANGEL_IRC_VERSION "Angel Communication IRC Client"
 

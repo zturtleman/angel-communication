@@ -131,7 +131,7 @@ void sighandler( int signum ) {
 
 int main( int argc, char **argv )
 {
-	printf("Angel Communication IRC\n");
+	printf(ANGEL_IRC_VERSION "\n");
 	printf("Use ctrl-C to exit.\n");
 
 	signal(SIGINT, sighandler);
