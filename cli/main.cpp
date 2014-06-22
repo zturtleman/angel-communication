@@ -23,6 +23,7 @@ freely, subject to the following restrictions:
 #include <cmath>
 #include <stdio.h>
 #include <signal.h>
+#include <string.h>
 #ifndef _WIN32
 #include <termios.h>
 #include <sys/select.h>
@@ -36,7 +37,11 @@ struct termios oldt;
 using namespace AngelCommunication;
 
 void ANGELC_PrintMessage( const AngelCommunication::Conversation *con, const AngelCommunication::Persona *speaker, const char *message ) {
-	printf("%s> %s\n", speaker->getName().c_str(), message );
+	if ( !strncmp( message, "/me", 3 ) && ( message[3] == ' ' || message[3] == '\0' ) ) {
+		printf("* %s%s\n", speaker->getName().c_str(), &message[3] );
+	} else {
+		printf("%s> %s\n", speaker->getName().c_str(), message );
+	}
 }
 
 bool charAvailable( float waitInSeconds ) {

@@ -222,7 +222,7 @@ void IrcClient::Update() {
 								channelName = where;
 							}
 
-							sprintf( msg, "%s %s", user, message ); // TODO: use /me instead of username? bots don't handle either case right now.
+							sprintf( msg, "/me %s", message );
 							ANGEL_IRC_ReceiveMessage( nick, user, channelName, msg );
 						}
 						else if ( !strcmp( ctcp, "PING" ) ) {
@@ -299,7 +299,12 @@ void IrcClient::SayTo( const char *target, const char *message ) {
 		return;
 	}
 
-	sprintf( msg, "PRIVMSG %s :%s\r\n", target, message );
+	if ( !strncmp( message, "/me", 3 ) && ( message[3] == ' ' || message[3] == '\0' ) ) {
+		sprintf( msg, "PRIVMSG %s :\001ACTION%s\001\r\n", target, &message[3] );
+	}
+	else {
+		sprintf( msg, "PRIVMSG %s :%s\r\n", target, message );
+	}
 	send( sock, msg, strlen(msg), 0 );
 }
 
