@@ -47,6 +47,8 @@ class IrcClient {
 		void Disconnect( const char *reason );
 
 		void SayTo( const char *target, const char *message );
+
+		int GetSocket() const;
 };
 
 #endif // ANGEL_IRC_BACKEND_INCLUDED

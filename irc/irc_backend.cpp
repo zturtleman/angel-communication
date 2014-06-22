@@ -303,3 +303,8 @@ void IrcClient::SayTo( const char *target, const char *message ) {
 	send( sock, msg, strlen(msg), 0 );
 }
 
+int IrcClient::GetSocket() const
+{
+	return sock;
+}
+

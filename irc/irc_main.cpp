@@ -121,6 +121,46 @@ void ANGELC_PrintMessage( const AngelCommunication::Conversation *con, const Ang
 	}
 }
 
+// wait until a set time passes or there is new socket data
+void ircIdle( float waitInSeconds ) {
+	fd_set rfds;
+	struct timeval tv, *ptv;
+	int retval;
+	int highestSock = 0;
+
+	double fractpart, intpart;
+
+	/* Watch sockets to see when it has input. */
+	FD_ZERO( &rfds );
+	for ( int i = 0; i < numBots; i++ ) {
+		// FIXME: check if connected!
+		int sock = bot_irc[i].GetSocket();
+		FD_SET( sock, &rfds );
+		if ( sock+1 > highestSock ) {
+			highestSock = sock+1;
+		}
+	}
+
+	if ( waitInSeconds >= 0 ) {
+		fractpart = modf(waitInSeconds , &intpart);
+
+		/* Wait up to half a second. */
+		tv.tv_sec = intpart;
+		tv.tv_usec = 1000000.0f * fractpart;
+
+		ptv = &tv;
+	} else {
+		// wait for socket data, ignore time
+		ptv = NULL;
+	}
+
+	retval = select(highestSock, &rfds, NULL, NULL, ptv);
+
+	// FIXME?: select failed
+	//if (retval == -1)
+	//	return;
+}
+
 void sighandler( int signum ) {
 	for ( int i = 0; i < numBots; i++ ) {
 		bot_irc[i].Disconnect( "Bye" );
@@ -173,6 +213,18 @@ int main( int argc, char **argv )
 			bot_irc[i].Update();
 			bots[i].think();
 		}
+
+		// sleep until bots wants to think or receive socket data.
+		float delay = -1, botDelay;
+
+		for ( int i = 0; i < numBots; i++ ) {
+			botDelay = bots[i].getSleepTime();
+			if ( delay < 0 || ( botDelay >= 0 && botDelay < delay ) ) {
+				delay = botDelay;
+			}
+		}
+
+		ircIdle( delay );
 	}
 
 	// never reached
