@@ -75,6 +75,127 @@ void Lexer::parse(const String &text)
     }
 }
 
+static bool incharset( char c, const char *charset ) {
+	const char *p = charset;
+
+	while ( *p ) {
+		if ( c == *p ) {
+			return true;
+		}
+		++p;
+	}
+
+	return false;
+}
+
+static const char *strchrset( const char *str, const char *charset ) {
+	const char *p = str;
+
+	while ( *p ) {
+		if ( incharset( *p, charset ) )
+			return p;
+
+		++p;
+	}
+
+	return NULL;
+}
+
+/*
+	splitSentences: Split text into separate sentences for individual parsing later
+
+	Split at each .!? if
+
+		* contains multiple punctuation characters in a row
+		* or has a space after the punctuation character
+		* if punctuation is '.', only splits if proceeding token does not contain multiple '.'s without spaces (ex: A.N.G.E.L. or ._.)
+
+	Others may be numbers (ex: 1.0) or acronyms (ex: A.N.G.E.L.) or emoticons (ex: ._.).
+
+	Tokens contain multiple '.'s without spaces (ex: A.N.G.E.L. or ._.) must have 2 '.'s to end a sentence (ex: I like A.N.G.E.L..).
+		FIXME: I think usually each acronym may or may not end sentence. No special double dot. Do I care?
+
+	FIXME: What if it's part of a name? blah K. Falcon blah
+
+	TODO: Check if this handles emoticons correct.
+*/
+void Lexer::splitSentences(const String &text) {
+	const char *dot, *p, *tokenStart;
+	const char *start = text.c_str();
+	const char punctuation[] = ".!?";
+
+	p = dot = tokenStart = start;
+	while ( dot ) {
+		dot = strchrset( p, punctuation );
+		if ( !dot ) {
+			String s( text.subscript( (int)( tokenStart - start ), text.getLen() ) );
+			s.trim();
+
+			// make sure not to add an empty string.
+			if ( s.getLen() > 0 )
+				tokens.push_back( s );
+
+			// NOTE: implicate ending that might be continued in next message
+			break;
+		}
+
+		//
+		int numDots = 1;
+		while ( incharset( dot[numDots], punctuation ) ) {
+			numDots++;
+		}
+
+		// always end at blah..blah or blah...... or B.L.A.H..
+		if ( numDots == 1 ) {
+			// don't end in middle of a number or a acronym
+			if ( dot[1] != ' ' && dot[1] != '\0' ) {
+				p = dot + 1;
+				continue;
+			}
+
+			// determine if this is a sentence break.
+
+			if ( *dot == '.' ) {
+				// check if it's end of a acronym
+				// find start of previous token
+				const char *s = p;
+				while ( s > start && *s != ' ' ) {
+					s--;
+				}
+
+				// count '.'s, upper case, and lower case
+				int dotsInToken = 0, nonDotsInToken = 0;
+				while ( *s != ' ' ) {
+					if ( *s == '.' )
+						dotsInToken++;
+					else
+						nonDotsInToken++;
+					s++;
+				}
+
+				// Might be an initial as part of a name (ex: K. Falcon) or [o]k[ay]. falcon. ;/
+				//if ( nonDotsInToken == 1 && dotsInToken == 1 ) {
+				//	p = dot + 1;
+				//	continue;
+				//}
+
+				// Don't skip acronyms (ex: a.n.g.e.l. blah)
+				if ( dotsInToken > 1 ) {
+					p = dot + 1;
+					continue;
+				}
+			}
+		}
+
+		String s( text.subscript( (int)( tokenStart - start ), (int)( dot - start ) + numDots ) );
+		s.trim();
+		tokens.push_back( s );
+
+		// skip to after this '.' (or group of ..s) to find the next.
+		p = tokenStart = dot + numDots;
+	}
+}
+
 void Lexer::removeToken(unsigned int index) {
 	if ( index >= this->tokens.size() ) {
 		return;

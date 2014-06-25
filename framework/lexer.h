@@ -43,7 +43,8 @@ class Lexer
 		Lexer(const String &text);
         ~Lexer(void);
         void clear(void);
-        void parse(const String &text);
+        void parse(const String &text); // split words
+		void splitSentences( const String &text ); // split sentences
 		void removeToken( unsigned int index );
         size_t getNumTokens(void) const;
         String getToken(unsigned int index) const;

@@ -72,14 +72,31 @@ void Conversation::removePersona( Persona *persona )
 
 void Conversation::addMessage( Persona *speaker, const String & message )
 {
+	Lexer lines;
+
+	lines.splitSentences( message );
+
 	ANGELC_PrintMessage( this, speaker, message.c_str() );
+
+#if 0
+	// print out split sentences for debugging
+	for ( int j = 0; j < lines.getNumTokens(); j++ ) {
+		String sentence;
+
+		sentence.snprintf( 1024, "Sentence %d: %s", j, lines[j].c_str() );
+
+		ANGELC_PrintMessage( this, speaker, sentence.c_str() );
+	}
+#endif
 
 	for ( int i = 0; i < this->personas.size(); i++ )
 	{
 		if ( this->personas[i] == speaker )
 			continue;
 
-		this->personas[i]->receiveMessage( this, speaker, message );
+		for ( int j = 0; j < lines.getNumTokens(); j++ ) {
+			this->personas[i]->receiveMessage( this, speaker, lines[j] );
+		}
 	}
 }
 
