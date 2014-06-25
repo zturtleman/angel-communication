@@ -403,63 +403,63 @@ bool String::validString(const char *string, const unsigned long min)
 void String::ltrim(void)
 {
     size_t i = 0, len = 0;
-    char *temp = NULL;
-
-    if (getLen()  < 2)
-    {
-        return;
-    }
-
-    temp = new char [getLen()+1];
-
-    strcpy(temp, c_str());
-    len = getLen();
-
-    for (i = 0; i < len; i++)
-    {
-        if (temp[i] != ' ')
-        {
-            break;
-        }
-    }
-
-    setData(&temp[i]);
-    delete[] temp;
-    return;
-}
-
-/*
-    String::rtrim
-    Remove unneeded spaces off the right side, by setting them to '\0'.
-*/
-void String::rtrim(void)
-{
-    char *str = NULL;
 
     if (getLen() < 2)
     {
         return;
     }
 
-    str = new char [getLen()+1];
-    strcpy(str, c_str());
+    len = getLen();
 
-    for (size_t i = getLen(); i > 0; i--)
+    for (i = 0; i < len; i++)
     {
-        if (str[i] != ' '
-            && str[i] != '\0')
+        if (data[i] != ' ')
         {
             break;
         }
-
-        str[i] = '\0';
     }
 
-    setData(str);
+	if ( i != len )
+	{
+		setData( subscript( i, len ) );
+	}
+	else
+	{
+		// it's all spaces
+		setData( "" );
+	}
+}
 
-    delete[] str;
+/*
+    String::rtrim
+    Remove unneeded spaces off the right side.
+*/
+void String::rtrim(void)
+{
+    size_t i;
 
-    return;
+    if (getLen() < 2)
+    {
+        return;
+    }
+
+    for (i = getLen()-1; i > 0; i--)
+    {
+        if (data[i] != ' ')
+        {
+            break;
+        }
+    }
+
+	if ( i > 0 )
+	{
+		setData( subscript( 0, i ) );
+	}
+	else
+	{
+		// it's all spaces
+		setData( "" );
+	}
 }
 
 /*
