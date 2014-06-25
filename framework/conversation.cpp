@@ -28,6 +28,15 @@ freely, subject to the following restrictions:
 namespace AngelCommunication
 {
 
+Conversation::Conversation()
+	: messageNum( 0 )
+{
+}
+
+size_t Conversation::getMessageNum( ) {
+	return this->messageNum;
+}
+
 size_t Conversation::numPersonas( ) {
 	return this->personas.size();
 }
@@ -74,6 +83,8 @@ void Conversation::addMessage( Persona *speaker, const String & message )
 {
 	Lexer lines;
 
+	messageNum++;
+
 	lines.splitSentences( message );
 
 	ANGELC_PrintMessage( this, speaker, message.c_str() );
@@ -95,7 +106,7 @@ void Conversation::addMessage( Persona *speaker, const String & message )
 			continue;
 
 		for ( int j = 0; j < lines.getNumTokens(); j++ ) {
-			this->personas[i]->receiveMessage( this, speaker, lines[j] );
+			this->personas[i]->receiveMessage( this, speaker, lines[j], messageNum );
 		}
 	}
 }

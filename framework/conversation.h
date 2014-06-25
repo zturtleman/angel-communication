@@ -35,8 +35,12 @@ class Conversation
 {
 	private:
 		std::vector<Persona*> personas;
+		size_t	messageNum;
 
 	public:
+		Conversation();
+
+		size_t getMessageNum();
 		size_t numPersonas();
 
 		void addPersona( Persona *persona );

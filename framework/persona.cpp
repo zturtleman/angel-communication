@@ -78,7 +78,7 @@ void Persona::personaConnect( Conversation *con, Persona *persona ) {
 		con->addMessage( this, s );
 }
 
-void Persona::receiveMessage( Conversation *con, Persona *speaker, const String &text )
+void Persona::receiveMessage( Conversation *con, Persona *speaker, const String &text, int messageNum )
 {
 	if ( !this->autoChat )
 		return;
@@ -90,7 +90,7 @@ void Persona::receiveMessage( Conversation *con, Persona *speaker, const String 
 		this->nextUpdateTime = time( NULL ) + 2;
 	}
 
-	this->messages.push_back( new Message( con, speaker, text ) );
+	this->messages.push_back( new Message( con, speaker, text, messageNum ) );
 }
 
 float Persona::getSleepTime() {
@@ -212,6 +212,7 @@ bool Persona::processMessage( Message *message )
 	Conversation *con = message->con;
 	Persona *from = message->from;
 	String full( message->text );
+	int messageNum = message->messageNum;
 	Lexer tokens( full );
 
 	// ignore pointless auto chat (otherwise bots get stuck repeating it...)
@@ -281,6 +282,12 @@ bool Persona::processMessage( Message *message )
 			WaitReply waitReply = this->expectations[i]->waitForReply;
 			bool freeExp = true;
 			bool freeMessage = true;
+
+			if ( messageNum <= this->expectations[i]->messageNum ) {
+				// message is older than expectation. it's not a response.
+				++i;
+				continue;
+			}
 
 			if ( waitReply == WR_COMPLETE_LAST ) {
 				if ( ( WordType( full ) & (WT_CANCEL_QUEST|WT_FILLER) ) ) {
@@ -830,12 +837,12 @@ bool Persona::processMessage( Message *message )
 
 void Persona::addExpectation( Conversation *c, Persona *f, WaitReply wr )
 {
-	this->expectations.push_back( new Expectation( c, f, wr ) );
+	this->expectations.push_back( new Expectation( c, f, c->getMessageNum(), wr ) );
 }
 
 void Persona::addExpectation( Conversation *c, Persona *f, WaitReply wr, const String &str )
 {
-	this->expectations.push_back( new Expectation( c, f, wr, str ) );
+	this->expectations.push_back( new Expectation( c, f, c->getMessageNum(), wr, str ) );
 }
 
 } // end namespace AngelCommunication

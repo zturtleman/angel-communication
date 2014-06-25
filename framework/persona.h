@@ -81,7 +81,7 @@ class Persona
 
 
 		// Conversation communication
-		void receiveMessage( Conversation *con, Persona *speaker, const String &text );
+		void receiveMessage( Conversation *con, Persona *speaker, const String &text, int messageNum );
 		void personaConnect( Conversation *con, Persona *persona );
 
 		void addExpectation( Conversation *c, Persona *f, WaitReply wr );
@@ -93,6 +93,7 @@ class Expectation
 	public:
 		Conversation	*con;
 		Persona			*from;
+		int				messageNum;		// latest messageNum at time of expectation (allows ignoring earlier messages)
 		WaitReply		waitForReply;	// expectation type
 		String			expstr;			// varies by expectation type
 
@@ -100,13 +101,13 @@ class Expectation
 		//       just assigning vars doesn't work correct, causes con to be NULL and from to be wrong
 		//       when storing in a vector<type*>.
 		//       FIXME: Why???
-		Expectation( Conversation *c, Persona *f, WaitReply wr )
-			: con( c ), from ( f ), waitForReply( wr ), expstr()
+		Expectation( Conversation *c, Persona *f, int num, WaitReply wr )
+			: con( c ), from ( f ), messageNum( num ), waitForReply( wr ), expstr()
 		{
 		}
 
-		Expectation( Conversation *c, Persona *f, WaitReply wr, const String &str )
-			: con( c ), from ( f ), waitForReply( wr ), expstr( str )
+		Expectation( Conversation *c, Persona *f, int num, WaitReply wr, const String &str )
+			: con( c ), from ( f ), messageNum( num ), waitForReply( wr ), expstr( str )
 		{
 		}
 
@@ -126,9 +127,10 @@ class Message
 		Conversation	*con;
 		Persona			*from;
 		String			text; // unprocessed message tokens.
+		int				messageNum;
 
-		Message( Conversation *c, Persona *f, const String & text )
-			: con( c ), from( f ), text( text )
+		Message( Conversation *c, Persona *f, const String & t, int num )
+			: con( c ), from( f ), text( t ), messageNum( num )
 		{
 		}
 
@@ -137,6 +139,7 @@ class Message
 			this->con = m.con;
 			this->from = m.from;
 			this->text = m.text;
+			this->messageNum = m.messageNum;
 			return *this;
 		}
 };
