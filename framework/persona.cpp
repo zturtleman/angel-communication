@@ -226,6 +226,21 @@ void Persona::think() {
 	}
 }
 
+bool matchPrase( const Lexer &tokens, const String &expect ) {
+	int last;
+
+	last = tokens.getNumTokens()-1;
+	if ( tokens[last] == "?" || tokens[last] == "!" || tokens[last] == "." )
+	{
+		last--;
+	}
+
+	if ( !tokens.toString( 0, last ).icompareTo( expect ) )
+		return true;
+
+	return false;
+}
+
 bool Persona::processMessage( Message *message )
 {
 	Conversation *con = message->con;
@@ -302,6 +317,11 @@ bool Persona::processMessage( Message *message )
 			bool freeExp = true;
 			bool freeMessage = true;
 
+			if ( waitReply == WR_SPECIFIED ) {
+				// don't add more statement games
+				didStatementGame = true;
+			}
+
 			if ( messageNum <= this->expectations[i]->messageNum ) {
 				// message is older than expectation. it's not a response.
 				++i;
@@ -365,8 +385,7 @@ bool Persona::processMessage( Message *message )
 					con->addMessage( this, "Guess not..." );
 				}
 			} else if ( waitReply == WR_SPECIFIED ) {
-				didStatementGame = true;
-				if ( this->expectations[i]->expstr == full ) {
+				if ( matchPrase( tokens, this->expectations[i]->expstr ) ) {
 					con->addMessage( this, "yay!" );
 				} else {
 					con->addMessage( this, "._." );
@@ -396,7 +415,7 @@ bool Persona::processMessage( Message *message )
 
 	for (int i = 0; statements[i].msg != NULL; ++i )
 	{
-		if ( full == statements[i].msg )
+		if ( matchPrase( tokens, statements[i].msg ) )
 		{
 			con->addMessage( this, statements[i].reply );
 			return true;
