@@ -150,8 +150,9 @@ struct sentenceType_s {
 	{ NULL, 0 }
 };
 
-#define GTF_LEAVING 1
-#define GTF_SPECIAL 2 // one does not just say Merry Christmas whenever.
+#define GTF_SPECIAL 1 // one does not just say Merry Christmas whenever.
+#define GTF_BYE		2
+#define GTF_NIGHT	4
 struct greetingType_s {
 	const char	*text;
 	int			subjectStartToken;
@@ -165,12 +166,18 @@ struct greetingType_s {
 	{ "ohai",			1,	0 },
 	{ "ohayou",			1,	0 }, // Ohayou Gozaimasu
 	{ "I acknowledge your existence", 4, 0 },
+	{ "Bye",			1,	GTF_BYE },
+	{ "Good bye",		2,	GTF_BYE },
+	{ "Goodbye",		1,	GTF_BYE },
+	{ "Good night",		2,	GTF_NIGHT },
+	{ "gn",				1,	GTF_NIGHT },
+	{ "sleep",			1,	GTF_NIGHT },
+	{ "sleep time",		2,	GTF_NIGHT },
+	{ "sleep taim",		2,	GTF_NIGHT },
 	{ "Welcome",		1,	GTF_SPECIAL }, // not really special but don't want saying a lot
 	{ "Good morning",	2,	GTF_SPECIAL },
 	{ "Good afternoon",	2,	GTF_SPECIAL },
 	{ "Good evening",	2,	GTF_SPECIAL },
-	{ "Good night",		2,	GTF_LEAVING },
-	{ "gn",				1,	GTF_LEAVING },
 	{ "Merry Christmas",2,	GTF_SPECIAL },
 
 	{ NULL, 0, 0 } // for random, NULL means repeat whatever greeting person said (including special ones).
@@ -400,7 +407,8 @@ bool Persona::processMessage( Message *message )
 	{
 		if ( full.icompareTo( greetingTypes[i].text, strlen(greetingTypes[i].text) ) == 0 )
 		{
-			bool leaving = ( greetingTypes[i].flags & GTF_LEAVING );
+			bool bye = !!( greetingTypes[i].flags & GTF_BYE );
+			bool night = !!( greetingTypes[i].flags & GTF_NIGHT );
 
 			// Ex: Hi Bob
 			if ( greetingTypes[i].subjectStartToken < tokens.getNumTokens() ) {
@@ -415,58 +423,31 @@ bool Persona::processMessage( Message *message )
 				con->addMessage( this, greetingTypes[i].text );
 			}
 			else
-#if 1
-			while ( 1 ) {
-				int r = rand() / (float)RAND_MAX * ARRAY_LEN( greetingTypes )-1;
-				if ( greetingTypes[r].flags & GTF_SPECIAL )
-					continue;
-				if ( ( greetingTypes[r].flags & GTF_LEAVING ) != leaving )
-					continue;
-
-				String s;
-
-				if ( greetingTypes[r].text == NULL ) {
-					// repeat whatever they said, which could be a special greeting.
-					s = greetingTypes[i].text;
-				} else {
-					s = greetingTypes[r].text;
-				}
-
-				s.append( " " );
-				s.append( from->getName() );
-				con->addMessage( this, s );
-				break;
-			}
-#else
 			{
-				static int greetings = 0; // this should be based on time since last greeting too.
+				for ( int n = 0; n < ARRAY_LEN( greetingTypes ); n++ ) {
+					int r = rand() / (float)RAND_MAX * ARRAY_LEN( greetingTypes )-1;
+					if ( greetingTypes[r].flags & GTF_SPECIAL )
+						continue;
+					if ( !!( greetingTypes[r].flags & GTF_NIGHT ) != night )
+						continue;
+					if ( !!( greetingTypes[r].flags & GTF_BYE ) != bye )
+						continue;
 
-				switch (greetings)
-				{
-					case 0:
-						con->addMessage( this, "Hello! ^_^" );
-						break;
-						
-					case 1:
-						con->addMessage( this, "Hello.. -.-" );
-						break;
-						
-					case 2:
-						con->addMessage( this, ">.>" );
-						break;
-						
-					case 3:
-						con->addMessage( this, "-.-" );
-						break;
-						
-					default:
-						con->addMessage( this, "..." );
-						break;
+					String s;
+
+					if ( greetingTypes[r].text == NULL ) {
+						// repeat whatever they said, which could be a special greeting.
+						s = greetingTypes[i].text;
+					} else {
+						s = greetingTypes[r].text;
+					}
+
+					s.append( " " );
+					s.append( from->getName() );
+					con->addMessage( this, s );
+					break;
 				}
-				
-				greetings++;
 			}
-#endif
 			return true;
 		}
 	}
