@@ -29,6 +29,7 @@ freely, subject to the following restrictions:
 
 // functions that must exist outside the framework (aka imported functions)
 void ANGELC_PrintMessage( const AngelCommunication::Conversation *con, const AngelCommunication::Persona *speaker, const char *message );
+void ANGELC_PersonaRename( const char *oldname, const char *newname );
 
 #endif // ANGEL_COMMUNICATION_INCLUDED
 

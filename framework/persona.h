@@ -73,7 +73,9 @@ class Persona
 		void think();
 		bool processMessage( Message *message );
 
-		void setName( const String &name );
+		void tryName( const String &name ); // try to rename
+		void updateName( const String &name ); // actually rename
+
 		void setGender( Gender gender );
 		void setAutoChat( bool autoChat );
 

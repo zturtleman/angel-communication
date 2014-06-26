@@ -59,7 +59,7 @@ void ANGEL_IRC_ReceiveMessage( const char *to, const char *from, const char *cha
 {
 	int i;
 
-	user.setName( from ); // HACK
+	user.updateName( from ); // HACK
 
 	// if there are multiple bots in the same channel and using same conversation,
 	// the messages will be duplicated (so only add for first bot...)
@@ -121,6 +121,30 @@ void ANGELC_PrintMessage( const AngelCommunication::Conversation *con, const Ang
 	}
 }
 
+// this is called when persona wants to change name
+void ANGELC_PersonaRename( const char *oldname, const char *newname ) {
+	for ( int b = 0; b < numBots; b++ ) {
+		if ( bots[b].getName() == oldname ) {
+			bot_irc[b].RequestNick( newname );
+			return;
+		}
+	}
+
+	printf( "ANGELC_PersonaRename: Unhandled local rename. %s -> %s\n", oldname, newname );
+}
+
+// IRC server says someone renamed
+void ANGEL_IRC_NickChange( const char *oldname, const char *newname ) {
+	for ( int b = 0; b < numBots; b++ ) {
+		if ( bots[b].getName() == oldname ) {
+			bots[b].updateName( newname );
+			return;
+		}
+	}
+
+	printf( "ANGEL_IRC_NickChange: Unhandled rename. %s -> %s\n", oldname, newname );
+}
+
 // wait until a set time passes or there is new socket data
 void ircIdle( float waitInSeconds ) {
 	fd_set rfds;
@@ -177,16 +201,16 @@ int main( int argc, char **argv )
 	signal(SIGINT, sighandler);
 	signal(SIGTERM, sighandler);
 
-	user.setName( "User" );
+	user.updateName( "User" );
 	user.setGender( GENDER_MALE );
 	user.setAutoChat( false );
 
-	bots[numBots].setName( "Angel" );
+	bots[numBots].updateName( "Angel" );
 	bots[numBots].setGender( GENDER_FEMALE );
 	numBots++;
 
 	// Having two IRC clients doesn't seem to work.
-	//bots[numBots].setName( "Sera" );
+	//bots[numBots].updateName( "Sera" );
 	//bots[numBots].setGender( GENDER_FEMALE );
 	//numBots++;
 
@@ -196,7 +220,7 @@ int main( int argc, char **argv )
 
 	// add a third persona so bot knows it's group chat...
 	Persona dummy;
-	dummy.setName( "Dummy" );
+	dummy.updateName( "Dummy" );
 	conlist[0].con.addPersona( &dummy );
 
 	conlist[0].con.addPersona( &user );

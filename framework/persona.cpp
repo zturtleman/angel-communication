@@ -23,6 +23,7 @@ freely, subject to the following restrictions:
 #include <cstring>
 #include <ctype.h>
 
+#include "angel.h"
 #include "persona.h"
 #include "wordtypes.h"
 
@@ -39,7 +40,18 @@ Persona::Persona()
 	this->nextUpdateTime = std::time( NULL ) + 2;
 }
 
-void Persona::setName( const String &name )
+void Persona::tryName( const String &name )
+{
+	if ( !this->name.icompareTo( "unknown" ) ) {
+		// HACK for initial name set :/
+		updateName( name );
+	} else {
+		String oldname = this->name;
+		ANGELC_PersonaRename( oldname.c_str(), name.c_str() );
+	}
+}
+
+void Persona::updateName( const String &name )
 {
 	this->name = name;
 	this->namePossesive = name;
@@ -250,7 +262,7 @@ bool Persona::processMessage( Message *message )
 
 		if ( tokens[1] == "set" ) {
 			if ( tokens[2] == "name" ) {
-				this->setName( tokens.toString( 3 ) );
+				this->tryName( tokens.toString( 3 ) );
 			}
 			if ( tokens[2] == "gender" ) {
 				if ( tolower( tokens[3][0] ) == 'f' ) {

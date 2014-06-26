@@ -25,6 +25,7 @@ freely, subject to the following restrictions:
 #include "../framework/angel.h"
 
 void ANGEL_IRC_ReceiveMessage( const char *to, const char *from, const char *channel, const char *message );
+void ANGEL_IRC_NickChange( const char *oldnick, const char *newnick );
 
 // Version reported to other IRC clients / shown in terminal at start up
 // FIXME?: version is suppose to be formatted as 'client:version:platform'?
@@ -38,6 +39,9 @@ class IrcClient {
 		int sock; // socket handle
 		int msgnum;
 		char data[1025]; // hold up to 2 512 character IRC messages
+		bool sentUSER;
+
+		void UpdateNick( const char *nick );
 
 	public:
 		IrcClient();
@@ -46,6 +50,7 @@ class IrcClient {
 		void Update();
 		void Disconnect( const char *reason );
 
+		void RequestNick( const char *nick );
 		void SayTo( const char *target, const char *message );
 
 		int GetSocket() const;

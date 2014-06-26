@@ -33,7 +33,7 @@ freely, subject to the following restrictions:
 #include "irc_backend.h"
 
 IrcClient::IrcClient()
-: nick( NULL ), sock( 0 ), connected( false ), msgnum( 0 )
+: nick( NULL ), channel( NULL ), sock( 0 ), connected( false ), msgnum( 0 ), sentUSER ( false )
 {
 	data[0] = 0;
 }
@@ -80,14 +80,7 @@ bool IrcClient::Connect( const char *server, const char *port, const char *nick,
 
 	fcntl(sock, F_SETFL, O_NONBLOCK);
 
-	// connected
-	char buf[513];
-
-	sprintf( buf, "USER %s 0 * :%s\r\n", nick, nick );
-	send( sock, buf, strlen( buf ), 0 );
-
-	sprintf( buf, "NICK %s\r\n", nick );
-	send( sock, buf, strlen( buf ), 0 );
+	RequestNick( nick );
 
 	// FIXME check for send failure?
 
@@ -165,10 +158,16 @@ void IrcClient::Update() {
 							break;
 						case 1:
 							command = oldhead;
+
+							if ( !strcmp( command, "NICK" ) ) {
+								// nick has no where argument
+								goto setMessage;
+							}
 							break;
 						case 2:
 							where = oldhead;
 
+setMessage:
 							// CTCP is formatted as :\x01VERSION\x01, :\x01PING 1403415318\x01, etc
 							if ( head[0] == ':' && head[1] == 0x01 ) {
 								ctcp = head+2;
@@ -202,7 +201,7 @@ void IrcClient::Update() {
 
 				printf( "user=[%s], command=[%s], where=[%s], ctcp=[%s], message=[%s]\n", user, command, where, ctcp, message );
 
-				if ( !command || !where ) {
+				if ( !command ) {
 					continue;
 				}
 
@@ -210,7 +209,16 @@ void IrcClient::Update() {
 					sprintf( msg, "JOIN %s\r\n", this->channel );
 					send( sock, msg, strlen(msg), 0 );
 				}
-				else if ( !strcmp( command, "PRIVMSG" ) ) {
+				else if ( !strcmp( command, "NICK" ) && user && message ) {
+					const char *oldname = user;
+					const char *newname = message;
+
+					if ( !strcmp( oldname, this->nick ) ) {
+						UpdateNick( newname );
+					}
+					ANGEL_IRC_NickChange( oldname, newname );
+				}
+				else if ( !strcmp( command, "PRIVMSG" ) && user && where && message ) {
 					if ( ctcp ) {
 						// handle "ACTION" /me messages
 						if ( !strcmp( ctcp, "ACTION" ) ) {
@@ -290,6 +298,40 @@ void IrcClient::Disconnect( const char *reason ) {
 	printf( "Disconnected (%s)\n", reason );
 
 	connected = false;
+	sentUSER = false;
+}
+
+void IrcClient::RequestNick( const char *nick ) {
+	char buf[513];
+
+	if ( this->nick && !strcmp( this->nick, nick ) )
+		return;
+
+	if ( !sentUSER ) {
+		sprintf( buf, "USER %s 0 * :%s\r\n", nick, nick );
+		send( sock, buf, strlen( buf ), 0 );
+		sentUSER = true;
+	}
+
+	sprintf( buf, "NICK %s\r\n", nick );
+	send( sock, buf, strlen( buf ), 0 );
+
+	printf("IRC_CLIENT: Requested nick \"%s\".\n", nick );
+}
+
+void IrcClient::UpdateNick( const char *nick ) {
+	char buf[513];
+
+	printf("IRC_CLIENT: Update nick, \"%s\" -> \"%s\"\n", this->nick, nick );
+
+	if ( this->nick && !strcmp( this->nick, nick ) )
+		return;
+
+	if ( this->nick ) {
+		free( this->nick );
+	}
+
+	this->nick = strdup( nick );
 }
 
 void IrcClient::SayTo( const char *target, const char *message ) {
@@ -306,6 +348,8 @@ void IrcClient::SayTo( const char *target, const char *message ) {
 		sprintf( msg, "PRIVMSG %s :%s\r\n", target, message );
 	}
 	send( sock, msg, strlen(msg), 0 );
+
+	printf( "SAY: %s", msg );
 }
 
 int IrcClient::GetSocket() const

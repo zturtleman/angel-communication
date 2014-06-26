@@ -36,12 +36,33 @@ struct termios oldt;
 
 using namespace AngelCommunication;
 
+Persona user, bot, bot2;
+
 void ANGELC_PrintMessage( const AngelCommunication::Conversation *con, const AngelCommunication::Persona *speaker, const char *message ) {
 	if ( !strncmp( message, "/me", 3 ) && ( message[3] == ' ' || message[3] == '\0' ) ) {
 		printf("* %s%s\n", speaker->getName().c_str(), &message[3] );
 	} else {
 		printf("%s> %s\n", speaker->getName().c_str(), message );
 	}
+}
+
+// this is called when persona wants to change name
+void ANGELC_PersonaRename( const char *oldname, const char *newname ) {
+	if ( user.getName() == newname
+		|| bot.getName() == newname
+		|| bot2.getName() == newname ) {
+		printf("Name \"%s\" is already in use.\n", newname );
+		return;
+	}
+
+	if ( user.getName() == oldname )
+		user.updateName( newname );
+	else if ( bot.getName() == oldname )
+		bot.updateName( newname );
+	else if ( bot2.getName() == oldname )
+		bot2.updateName( newname );
+
+	printf("* %s is now known as %s\n", oldname, newname );
 }
 
 bool charAvailable( float waitInSeconds ) {
@@ -114,17 +135,16 @@ int main( int argc, char **argv )
 	signal(SIGINT, sighandler);
 	signal(SIGTERM, sighandler);
 
-	Persona user, bot, bot2;
 	Conversation room;
 
-	user.setName( "User" );
+	user.updateName( "User" );
 	user.setGender( GENDER_MALE );
 	user.setAutoChat( false );
 
-	bot.setName( "Angel" );
+	bot.updateName( "Angel" );
 	bot.setGender( GENDER_FEMALE );
 
-	bot2.setName( "Sera" );
+	bot2.updateName( "Sera" );
 	bot2.setGender( GENDER_FEMALE );
 
 	room.addPersona( &bot );
@@ -170,7 +190,11 @@ int main( int argc, char **argv )
 				printf("\r");
 				fflush(stdout);
 
-				room.addMessage( &user, text.c_str() );
+				if ( !strncmp( text.c_str(), "/nick ", 6 ) ) {
+					user.tryName( &text[6] );
+				} else {
+					room.addMessage( &user, text.c_str() );
+				}
 
 				text.clear();
 			}
