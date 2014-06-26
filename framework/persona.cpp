@@ -838,7 +838,9 @@ bool Persona::processMessage( Message *message )
 		}
 	}
 
-	con->addMessage( this, "I don't know how to parse that statement, sorry." );
+	if ( con->numPersonas() <= 2 || !this->funReplies ) {
+		con->addMessage( this, "I don't know how to parse that statement, sorry." );
+	}
 	return true;
 }
 
