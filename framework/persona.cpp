@@ -481,12 +481,6 @@ bool Persona::processMessage( Message *message )
 
 			subject = sentenceTypes[i].subjectStartToken;
 
-			// MAGIC HACK for What? ...
-			/*if ( tokens[subject] == "?" )
-			{
-				subject++;
-			}*/
-
 			if ( tokens[subject] == "your" || tokens[subject] == this->namePossesive )
 			{
 				subject++;
@@ -693,11 +687,12 @@ bool Persona::processMessage( Message *message )
 		subject++;
 
 		// MAGIC HACK for What? ...
-		if ( tokens[subject] == "?" )
+		// FIXME: lines are split at "?" now.
+		/*if ( tokens[subject] == "?" )
 		{
 			subject++;
 			sarcasmHint = true;
-		}
+		}*/
 	}
 
 	if ( tokens[subject] == "your" || tokens[subject] == this->namePossesive )
