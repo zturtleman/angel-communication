@@ -23,6 +23,7 @@ freely, subject to the following restrictions:
 #include <cmath>
 #include <stdio.h>
 #include <signal.h>
+#include <string.h>
 
 #include "irc_backend.h"
 
@@ -34,6 +35,7 @@ using namespace AngelCommunication;
 #define IRC_SERVER	"wizard.local"
 #define IRC_PORT	"6667"
 #define IRC_CHANNEL	"#sandbox"
+#define IRC_CONNECT_DELAY 20 // wait 20 seconds between connecting each bot
 
 
 Persona user; // repersents all irc users... should probably have a persona for each?
@@ -58,15 +60,35 @@ int numCons = 0;
 void ANGEL_IRC_ReceiveMessage( const char *to, const char *from, const char *channel, const char *message )
 {
 	int i;
+	Persona *speaker = NULL;
 
-	user.updateName( from ); // HACK
+	for ( i = 0; i < numBots; i++ ) {
+		if ( bots[i].getName() == from ) {
+			speaker = &bots[i];
+			break;
+		}
+	}
 
-	// if there are multiple bots in the same channel and using same conversation,
-	// the messages will be duplicated (so only add for first bot...)
-	if ( channel && bots[0].getName() == to ) {
+	if ( !speaker ) {
+		// HACK: should have a persona for everyone?...
+		user.updateName( from );
+		speaker = &user;
+	}
+
+	if ( channel ) {
+		// HACK: if there are multiple bots in the same channel and using same conversation,
+		// the messages will be duplicated (so only add for first bot...)
+		if ( bots[0].getName().icompareTo( to ) != 0 )
+			return;
+
+		// Don't re-add bot messages (this would cause them to be sent to server again)
+		if ( speaker != &user ) {
+			return;
+		}
+
 		for ( i = 0; i < numCons; i++ ) {
 			if ( conlist[i].name == channel ) {
-				conlist[i].con.addMessage( &user, message );
+				conlist[i].con.addMessage( speaker, message );
 				break;
 			}
 		}
@@ -78,14 +100,14 @@ void ANGEL_IRC_ReceiveMessage( const char *to, const char *from, const char *cha
 	// Create new direct conversation
 	if ( i < MAX_CONS ) {
 		conlist[i].name = from;
-		conlist[i].con.addPersona( &user );
+		conlist[i].con.addPersona( speaker );
 		for ( int b = 0; b < numBots; b++ ) {
 			if ( bots[b].getName() == to ) {
 				conlist[i].con.addPersona( &bots[b] );
 				break;
 			}
 		}
-		conlist[i].con.addMessage( &user, message );
+		conlist[i].con.addMessage( speaker, message );
 		numCons++;
 	} else {
 		// TODO: Try to free a unused direct conversation
@@ -209,27 +231,27 @@ int main( int argc, char **argv )
 	bots[numBots].setGender( GENDER_FEMALE );
 	numBots++;
 
-	// Having two IRC clients doesn't seem to work.
-	//bots[numBots].updateName( "Sera" );
-	//bots[numBots].setGender( GENDER_FEMALE );
-	//numBots++;
+	if ( argc >= 2 && !strcmp( argv[1], "--two" ) ) {
+		bots[numBots].updateName( "Sera" );
+		bots[numBots].setGender( GENDER_FEMALE );
+		numBots++;
+	} else {
+		// HACK always add extra persona so bot knows channel is "group chat" mode...
+		bots[numBots].updateName( "Dummy" );
+		bots[numBots].setAutoChat( false );
+		conlist[0].con.addPersona( &bots[numBots] );
+	}
 
 	for ( int i = 0; i < numBots; i++ ) {
 		conlist[0].con.addPersona( &bots[i] );
 	}
 
-	// add a third persona so bot knows it's group chat...
-	Persona dummy;
-	dummy.updateName( "Dummy" );
-	conlist[0].con.addPersona( &dummy );
-
 	conlist[0].con.addPersona( &user );
 	conlist[0].name = IRC_CHANNEL;
 	numCons++;
 
-	for ( int i = 0; i < numBots; i++ ) {
-		bot_irc[i].Connect( IRC_SERVER, IRC_PORT, bots[i].getName().c_str(), IRC_CHANNEL );
-	}
+	bot_irc[0].Connect( IRC_SERVER, IRC_PORT, bots[0].getName().c_str(), IRC_CHANNEL );
+	std::time_t	connectTime = std::time( NULL );
 
 	while (1)
 	{
@@ -242,7 +264,17 @@ int main( int argc, char **argv )
 		float delay = -1, botDelay;
 
 		for ( int i = 0; i < numBots; i++ ) {
-			botDelay = bots[i].getSleepTime();
+			if ( bot_irc[i].Connected() ) {
+				botDelay = bots[i].getSleepTime();
+			} else {
+				botDelay = ( connectTime + IRC_CONNECT_DELAY ) - time( NULL );
+
+				if ( botDelay <= 0 ) {
+					bot_irc[i].Connect( IRC_SERVER, IRC_PORT, bots[i].getName().c_str(), IRC_CHANNEL );
+					connectTime = time( NULL );
+				}
+			}
+
 			if ( delay < 0 || ( botDelay >= 0 && botDelay < delay ) ) {
 				delay = botDelay;
 			}

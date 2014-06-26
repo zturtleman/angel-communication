@@ -123,7 +123,7 @@ void IrcClient::Update() {
 			}
 			eol = p;
 
-			printf("MESSAGE %d: %s\n", msgnum, buf );
+			printf("%s: MESSAGE %d: %s\n", this->nick, msgnum, buf );
 			msgnum++;
 
 		    if ( !strncmp( buf, "PING ", 5 ) ) {
@@ -372,11 +372,16 @@ void IrcClient::SayTo( const char *target, const char *message ) {
 	}
 	send( sock, msg, strlen(msg), 0 );
 
-	printf( "SAY: %s", msg );
+	printf( "%s: SAY: %s", this->nick, msg );
 }
 
 int IrcClient::GetSocket() const
 {
 	return sock;
+}
+
+bool IrcClient::Connected() const
+{
+	return connected;
 }
 
