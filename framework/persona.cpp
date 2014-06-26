@@ -638,7 +638,7 @@ bool Persona::processMessage( Message *message )
 						// if not talking about me, then I don't know.
 						String s("Let's talk about me instead of ");
 						s.append( tokens.toString( w, last ) ); // if use subject instead of w, repeats all the filler words
-						s.append(", okay?");
+						s.append(".");
 						con->addMessage( this, s );
 					}
 				}
