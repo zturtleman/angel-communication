@@ -167,6 +167,21 @@ void IrcClient::Update() {
 						case 2:
 							where = oldhead;
 
+							// Handle :server 433 * Nick :Nickname is already in use.
+							if ( !strcmp( command, "433" ) ) {
+								user = head;
+								oldhead = head;
+
+								head = strchr( head, ' ' );
+
+								if ( !head )
+									break;
+
+								*head = '\0';
+								head++;
+
+							}
+
 setMessage:
 							// CTCP is formatted as :\x01VERSION\x01, :\x01PING 1403415318\x01, etc
 							if ( head[0] == ':' && head[1] == 0x01 ) {
@@ -208,6 +223,14 @@ setMessage:
 				if ( !strcmp( command, "001" ) ) {
 					sprintf( msg, "JOIN %s\r\n", this->channel );
 					send( sock, msg, strlen(msg), 0 );
+				}
+				else if ( !strcmp( command, "433" ) && user ) {
+					// Try nick with an underscore after it
+					sprintf( msg, "%s_", user );
+
+					ANGEL_IRC_NickChange( this->nick, msg );
+					RequestNick( msg );
+					UpdateNick( msg );
 				}
 				else if ( !strcmp( command, "NICK" ) && user && message ) {
 					const char *oldname = user;
