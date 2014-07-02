@@ -57,7 +57,7 @@ depend: .depend
 	$(CXX) $(CXXFLAGS) -MM $^>>./.depend;
 
 clean:
-	$(RM) $(CLI_OBJS) $(IRC_OBJS)
+	$(RM) $(CLI_OBJS) $(IRC_OBJS) $(TEST_OBJS)
 
 dist-clean: clean
 	$(RM) angelcli$(BINEXT) angelirc$(BINEXT) angeltest$(BINEXT) ./.depend
