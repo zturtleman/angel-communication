@@ -26,8 +26,12 @@ IRC_SRCS = $(FRAMEWORK_SRCS) \
 	irc/irc_main.cpp \
 	irc/irc_backend.cpp
 
+TEST_SRCS = $(FRAMEWORK_SRCS) \
+	test/test_main.cpp
+
 CLI_OBJS=$(subst .cpp,.o,$(CLI_SRCS))
 IRC_OBJS=$(subst .cpp,.o,$(IRC_SRCS))
+TEST_OBJS=$(subst .cpp,.o,$(TEST_SRCS))
 
 ifeq ($(PLATFORM),mingw32)
 	BINEXT=.exe
@@ -35,13 +39,16 @@ else
 	BINEXT=
 endif
 
-all: angelcli$(BINEXT) angelirc$(BINEXT)
+all: angelcli$(BINEXT) angelirc$(BINEXT) angeltest$(BINEXT)
 
 angelcli$(BINEXT): $(CLI_OBJS)
 	$(CXX) $(LDFLAGS) -o $@ $(CLI_OBJS) $(LDLIBS)
 
 angelirc$(BINEXT): $(IRC_OBJS)
 	$(CXX) $(LDFLAGS) -o $@ $(IRC_OBJS) $(LDLIBS)
+
+angeltest$(BINEXT): $(TEST_OBJS)
+	$(CXX) $(LDFLAGS) -o $@ $(TEST_OBJS) $(LDLIBS)
 
 depend: .depend
 
@@ -53,7 +60,7 @@ clean:
 	$(RM) $(CLI_OBJS) $(IRC_OBJS)
 
 dist-clean: clean
-	$(RM) angelcli$(BINEXT) angelirc$(BINEXT) ./.depend
+	$(RM) angelcli$(BINEXT) angelirc$(BINEXT) angeltest$(BINEXT) ./.depend
 
 include ./.depend
 

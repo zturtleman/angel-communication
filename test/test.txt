@@ -1,0 +1,14 @@
+Angel, hi
+Angel: hi
+@Angel hi
+What is a robot?
+"So it would seem."
+LOL XD O.O O_O :) :D ;p X_X :3 D: (0.0)
+Okay, let's go.
+
+The Hatter opened his eyes very wide on hearing this; but all he said was, `Why is a raven like a writing-desk?'
+
+#include <angel.h>
+int main( int argc, char **argv ) { return 0; }
+
+THE END
