@@ -27,6 +27,7 @@ freely, subject to the following restrictions:
 
 #include <stdio.h> // printf
 #include <malloc.h> // free
+#include <errno.h> // errno
 
 #include <cstring>
 
@@ -303,6 +304,14 @@ setMessage:
 			data[0] = 0;
 		}
     }
+
+	if ( newlen == 0 ) {
+		Disconnect( "Connection closed" );
+	}
+	// EAGAIN/EWOULDBLOCK just means no data available right now, try again later
+	else if ( newlen < 0 && errno != EAGAIN && errno != EWOULDBLOCK ) {
+		printf( "WARNING: recv errored: %s (errno %d)\n", strerror( errno ), errno );
+	}
 }
 
 void IrcClient::Disconnect( const char *reason ) {
