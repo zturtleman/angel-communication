@@ -94,7 +94,7 @@ bool checkPunctSplit( const String &text, int index ) {
 		// count '.'s, upper case, and lower case
 		int dotsInToken = 0, nonDotsInToken = 0;
 		const char *s = &str[tokenStart];
-		while ( *s != ' ' ) {
+		while ( *s && *s != ' ' ) {
 			if ( *s == '.' )
 				dotsInToken++;
 			else
