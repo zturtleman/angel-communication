@@ -19,6 +19,7 @@ freely, subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 */
 
+#include <cctype>
 #include "lexer.h"
 
 namespace AngelCommunication
@@ -41,38 +42,7 @@ Lexer::~Lexer()
 void Lexer::clear()
 {
 	this->tokens.clear();
-}
-
-// Adds the tokens to the lexer from text separated by white space.
-// ? and ! are always separated from end of tokens.
-void Lexer::parse(const String &text)
-{
-	int tokenStart = -1;
-	bool marks;
-
-    for (size_t i = 0, len = text.getLen()+1; i < len; i++)
-    {
-		marks = text[i] == '.' || text[i] == ',' || text[i] == '!' || text[i] == '?';
-
-        if (text[i] == ' ' || text[i] == '\t' || text[i] == '\r'
-            || text[i] == '\n' || text[i] == '\0' || marks)
-        {
-            if (tokenStart != -1) {
-				this->tokens.push_back(text.subscript(tokenStart, i - 1));
-				tokenStart = -1;
-			}
-
-			if (marks)
-				this->tokens.push_back(text.subscript(i, i));
-        }
-        else
-        {
-            if (tokenStart == -1) 
-			{
-				tokenStart = i;
-			}
-        }
-    }
+	this->spaceAfterToken.clear();
 }
 
 static bool incharset( char c, const char *charset ) {
@@ -99,6 +69,115 @@ static const char *strchrset( const char *str, const char *charset ) {
 	}
 
 	return NULL;
+}
+
+// Check if should split text at index.
+// This assumes you want to split here because of a special character, .!?
+bool checkPunctSplit( const String &text, int index ) {
+	const char *str = text.c_str();
+
+	// don't end in middle of a number or a acronym
+	if ( !isspace( str[index+1] ) && str[index+1] != '\0' ) {
+		return true;
+	}
+
+	// determine if this is a word break.
+
+	if ( str[index] == '.' ) {
+		// check if it's end of a acronym
+		// find start of the token
+		int	tokenStart = index;
+		while ( tokenStart > 0 && str[tokenStart-1] != ' ' ) {
+			tokenStart--;
+		}
+
+		// count '.'s, upper case, and lower case
+		int dotsInToken = 0, nonDotsInToken = 0;
+		const char *s = &str[tokenStart];
+		while ( *s != ' ' ) {
+			if ( *s == '.' )
+				dotsInToken++;
+			else
+				nonDotsInToken++;
+			s++;
+		}
+
+		// Might be an initial as part of a name (ex: K. Falcon) or [o]k[ay]. falcon. ;/
+		//if ( nonDotsInToken == 1 && dotsInToken == 1 ) {
+		//	return false;
+		//}
+
+		// Don't skip acronyms (ex: a.n.g.e.l. blah)
+		if ( dotsInToken > 1 ) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+// Adds the tokens to the lexer from text separated by white space.
+// graphic character that are not alphabet or numbers are always separated from beginning and end of tokens.
+void Lexer::parse(const String &text)
+{
+	int tokenStart = -1;
+	bool marks;
+	const char punctuation[] = ".!?"; // sentence punctuation
+
+    for (size_t i = 0, len = text.getLen()+1; i < len; i++)
+    {
+		if ( incharset( text[i], punctuation ) && !checkPunctSplit( text, i ) )
+		{
+			continue;
+		}
+
+		marks = false;
+
+		if ( ispunct( text[i] ) ) {
+			// split off from beginning
+			if ( tokenStart == -1 )
+				marks = true;
+			// split off from end
+			else if ( i < len - 1 )
+			{
+				bool hasCharBeforeSpace = false;
+
+				for ( size_t j = i+1; j < len; j++ ) {
+					if ( text[j] == ' ' ) {
+						break;
+					}
+					if ( isalnum( text[j] ) ) {
+						hasCharBeforeSpace = true;
+						break;
+					}
+				}
+
+				if ( !hasCharBeforeSpace || !text[i+1] )
+					marks = true;
+			}
+		}
+
+        if ( isspace( text[i] ) || text[i] == '\0' || marks )
+        {
+            if (tokenStart != -1) {
+				this->spaceAfterToken.push_back( isspace( text[i] ) );
+				this->tokens.push_back(text.subscript(tokenStart, i - 1));
+				tokenStart = -1;
+			}
+
+			if (marks) {
+				this->spaceAfterToken.push_back( ( i < len-1 && isspace( text[i+1] ) ) );
+				this->tokens.push_back(text.subscript(i, i));
+			}
+        }
+        else
+        {
+            if (tokenStart == -1) 
+			{
+				tokenStart = i;
+			}
+        }
+    }
 }
 
 /*
@@ -146,45 +225,9 @@ void Lexer::splitSentences(const String &text) {
 		}
 
 		// always end at blah..blah or blah...... or B.L.A.H..
-		if ( numDots == 1 ) {
-			// don't end in middle of a number or a acronym
-			if ( dot[1] != ' ' && dot[1] != '\0' ) {
-				p = dot + 1;
-				continue;
-			}
-
-			// determine if this is a sentence break.
-
-			if ( *dot == '.' ) {
-				// check if it's end of a acronym
-				// find start of previous token
-				const char *s = p;
-				while ( s > start && *s != ' ' ) {
-					s--;
-				}
-
-				// count '.'s, upper case, and lower case
-				int dotsInToken = 0, nonDotsInToken = 0;
-				while ( *s != ' ' ) {
-					if ( *s == '.' )
-						dotsInToken++;
-					else
-						nonDotsInToken++;
-					s++;
-				}
-
-				// Might be an initial as part of a name (ex: K. Falcon) or [o]k[ay]. falcon. ;/
-				//if ( nonDotsInToken == 1 && dotsInToken == 1 ) {
-				//	p = dot + 1;
-				//	continue;
-				//}
-
-				// Don't skip acronyms (ex: a.n.g.e.l. blah)
-				if ( dotsInToken > 1 ) {
-					p = dot + 1;
-					continue;
-				}
-			}
+		if ( numDots == 1 && !checkPunctSplit( text, (int)( dot - start ) ) ) {
+			p = dot + 1;
+			continue;
 		}
 
 		String s( text.subscript( (int)( tokenStart - start ), (int)( dot - start ) + numDots ) );
@@ -246,7 +289,7 @@ int Lexer::findPartial(const String &needle) const
 	return -1;
 }
 
-String Lexer::toString( unsigned int first, unsigned int last ) const
+String Lexer::toString( unsigned int first, unsigned int last, bool forceSpaces ) const
 {
 	if ( getNumTokens() == 0 )
 		return String();
@@ -260,7 +303,8 @@ String Lexer::toString( unsigned int first, unsigned int last ) const
 
 	for (int i = first+1; i <= last; ++i)
 	{
-		s.append(" ");
+		if ( forceSpaces || this->spaceAfterToken.size() < i || this->spaceAfterToken[i - 1] == true )
+			s.append(" ");
 		s.append(this->tokens[i]);
 	}
 

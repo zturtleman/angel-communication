@@ -37,6 +37,7 @@ class Lexer
 {
     private:
         std::vector<String> tokens;
+        std::vector<bool> spaceAfterToken;
 
     public:
         Lexer(void);
@@ -53,7 +54,7 @@ class Lexer
 		int findExact(const String &needle) const;
 		int findPartial(const String &needle) const;
 
-		String toString(unsigned int first = 0, unsigned int last = -1) const;
+		String toString(unsigned int first = 0, unsigned int last = -1, bool forceSpaces = false) const;
 };
 
 

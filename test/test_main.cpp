@@ -52,6 +52,7 @@ void sighandler( int signum ) {
 int main( int argc, char **argv )
 {
 	const char *filename = "test/test.txt";
+	Lexer lexer;
 
 	printf( "Angel Communication Non-interactive Lexer Test Edition\n" );
 
@@ -78,7 +79,8 @@ int main( int argc, char **argv )
 
 		printf( "IN : %s\n", line.c_str() );
 
-		Lexer lexer( line.c_str() );
+		lexer.clear();
+		lexer.parse( line.c_str() );
 
 		printf( "OUT: %s\n", lexer.toString().c_str() );
 
