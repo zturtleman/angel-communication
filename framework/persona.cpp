@@ -622,7 +622,9 @@ bool Persona::processMessage( Message *message )
 						// Ex: How are you?
 						if (tokens[subject] == "?")
 						{
-							con->addMessage( this, "Good, busy. How are you?" );
+							con->addMessage( this, "Good." );
+							// Bots get stuck replying with this
+							//con->addMessage( this, "Good. How are you?" );
 						}
 						else
 						{
