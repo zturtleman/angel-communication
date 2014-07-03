@@ -33,6 +33,24 @@ freely, subject to the following restrictions:
 
 #include "irc_backend.h"
 
+static int sendall( int fd, const char *s, int len, int flags ) {
+	int left = len;
+	int val;
+
+	while ( left > 0 ) {
+		val = send( fd, s+len-left, left, flags );
+
+		if ( val < 0 ) {
+			printf( "WARNING: send errored: %s (errno %d)\n", strerror( errno ), errno );
+			return -1;
+		}
+
+		left -= val;
+	}
+
+	return 0;
+}
+
 IrcClient::IrcClient()
 : nick( NULL ), channel( NULL ), sock( 0 ), connected( false ), msgnum( 0 ), sentUSER ( false )
 {
@@ -129,7 +147,7 @@ void IrcClient::Update() {
 
 		    if ( !strncmp( buf, "PING ", 5 ) ) {
 		        buf[1] = 'O';
-		        send( sock, buf, strlen(buf), 0 );
+		        sendall( sock, buf, strlen(buf), 0 );
 		    }
 		    else if ( buf[0] == ':' ) {
 				char *user = NULL;
@@ -223,7 +241,7 @@ setMessage:
 
 				if ( !strcmp( command, "001" ) ) {
 					sprintf( msg, "JOIN %s\r\n", this->channel );
-					send( sock, msg, strlen(msg), 0 );
+					sendall( sock, msg, strlen(msg), 0 );
 				}
 				else if ( !strcmp( command, "433" ) && user ) {
 					// Try nick with an underscore after it
@@ -259,7 +277,7 @@ setMessage:
 						}
 						else if ( !strcmp( ctcp, "PING" ) ) {
 							sprintf( msg, "NOTICE %s :\001PING %s\001\r\n", user, message );
-							send( sock, msg, strlen(msg), 0 );
+							sendall( sock, msg, strlen(msg), 0 );
 						}
 						// FIXME?: missing timezone, though time info doesn't really matter for bots currently...
 						else if ( !strcmp( ctcp, "TIME" ) ) {
@@ -270,16 +288,16 @@ setMessage:
 							loctime = localtime (&curtime);
 
 							sprintf( msg, "NOTICE %s :\001TIME :%s\001\r\n", user, asctime (loctime) );
-							send( sock, msg, strlen(msg), 0 );
+							sendall( sock, msg, strlen(msg), 0 );
 						}
 						else if ( !strcmp( ctcp, "VERSION" ) ) {
 							sprintf( msg, "NOTICE %s :\001VERSION %s\001\r\n", user, ANGEL_IRC_VERSION );
-							send( sock, msg, strlen(msg), 0 );
+							sendall( sock, msg, strlen(msg), 0 );
 						}
 						else {
 							// this might be a bad idea... I almost missed adding ACTION which resulted in bot messaging anyone who used /me
 							sprintf( msg, "NOTICE %s :\001ERRMSG %s : Query is unknown\001\r\n", user, ctcp );
-							send( sock, msg, strlen(msg), 0 );
+							sendall( sock, msg, strlen(msg), 0 );
 
 							printf("WARNING: Received unknown CTCP tag name (%s) from %s, acked ERRMSG back\n", ctcp, user);
 						}
@@ -322,7 +340,7 @@ void IrcClient::Disconnect( const char *reason ) {
 	}
 
 	sprintf( buf, "QUIT :%s\r\n", reason );
-	send( sock, buf, strlen( buf ), 0 );
+	sendall( sock, buf, strlen( buf ), 0 );
 
 	close( sock );
 	sock = 0;
@@ -341,12 +359,12 @@ void IrcClient::RequestNick( const char *nick ) {
 
 	if ( !sentUSER ) {
 		sprintf( buf, "USER %s 0 * :%s\r\n", nick, nick );
-		send( sock, buf, strlen( buf ), 0 );
+		sendall( sock, buf, strlen( buf ), 0 );
 		sentUSER = true;
 	}
 
 	sprintf( buf, "NICK %s\r\n", nick );
-	send( sock, buf, strlen( buf ), 0 );
+	sendall( sock, buf, strlen( buf ), 0 );
 
 	printf("IRC_CLIENT: Requested nick \"%s\".\n", nick );
 }
@@ -379,7 +397,7 @@ void IrcClient::SayTo( const char *target, const char *message ) {
 	else {
 		sprintf( msg, "PRIVMSG %s :%s\r\n", target, message );
 	}
-	send( sock, msg, strlen(msg), 0 );
+	sendall( sock, msg, strlen(msg), 0 );
 
 	printf( "%s: SAY: %s", this->nick, msg );
 }
