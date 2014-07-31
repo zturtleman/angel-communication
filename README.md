@@ -18,6 +18,8 @@ Use [CMake](http://www.cmake.org) to generate build files.
 
 On GNU/Linux if you have cmake installed you can run `mkdir build && cd build && cmake .. && make`.
 
+On GNU/Linux you can cross-compile for Windows using `mkdir build-mingw && cd build-mingw && cmake .. -DCMAKE_TOOLCHAIN_FILE=../toolchain-cross-mingw32-linux.cmake && make`.
+
 ## goals
 
 The primary goal is to create interactive characters. For now it's limited to text communication but may expand to include visual repersentations in the future.
