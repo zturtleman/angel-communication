@@ -143,6 +143,8 @@ struct sentenceType_s {
 	{ "What the ",	2, 0 }, // What the $word [is/are $word]
 
 	// non-questions
+	{ "I want to ",	3, STF_YOUCOMPLETEME | STF_STATEMENT },
+	{ "I want ",	2, STF_YOUCOMPLETEME | STF_STATEMENT },
 	{ "I like ",	2, STF_YOUCOMPLETEME | STF_STATEMENT },
 	{ "I love ",	2, STF_YOUCOMPLETEME | STF_STATEMENT },
 	{ "I really like ",	3, STF_YOUCOMPLETEME | STF_STATEMENT },
