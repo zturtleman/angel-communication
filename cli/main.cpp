@@ -130,7 +130,7 @@ int main( int argc, char **argv )
 #endif
 
 	printf("Angel Communication CLI\n");
-	printf("Type 'quit' for exit Angel Communication.\n");
+	printf("Type 'quit' to exit Angel Communication.\n");
 
 	signal(SIGINT, sighandler);
 	signal(SIGTERM, sighandler);
