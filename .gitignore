@@ -11,3 +11,6 @@
 *.lai
 *.la
 *.a
+
+# Commonly used for cmake build directory
+build/*
