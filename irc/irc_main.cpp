@@ -24,6 +24,11 @@ freely, subject to the following restrictions:
 #include <stdio.h>
 #include <signal.h>
 #include <string.h>
+#ifdef _WIN32
+#include <winsock2.h>
+#else
+#include <sys/select.h>
+#endif
 
 #include "irc_backend.h"
 

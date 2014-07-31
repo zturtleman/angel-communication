@@ -20,10 +20,15 @@ freely, subject to the following restrictions:
 */
 
 #include <sys/types.h>
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
 #include <fcntl.h>
+#endif
 
 #include <stdio.h> // printf
 #include <malloc.h> // free
@@ -32,6 +37,10 @@ freely, subject to the following restrictions:
 #include <cstring>
 
 #include "irc_backend.h"
+
+#ifndef _WIN32
+#define closesocket(x) close(x)
+#endif
 
 static int sendall( int fd, const char *s, int len, int flags ) {
 	int left = len;
@@ -97,7 +106,16 @@ bool IrcClient::Connect( const char *server, const char *port, const char *nick,
 
 	freeaddrinfo( res );
 
-	fcntl(sock, F_SETFL, O_NONBLOCK);
+	// set socket as non-blocking
+	{
+#ifdef _WIN32
+		u_long val = 1;
+		ioctlsocket( sock, FIONBIO, &val );
+#else
+		int flags = fcntl( sock, F_GETFL, 0 );
+		fcntl( sock, F_SETFL, flags | O_NONBLOCK );
+#endif
+	}
 
 	RequestNick( nick );
 
@@ -327,7 +345,11 @@ setMessage:
 		Disconnect( "Connection closed" );
 	}
 	// EAGAIN/EWOULDBLOCK just means no data available right now, try again later
-	else if ( newlen < 0 && errno != EAGAIN && errno != EWOULDBLOCK ) {
+	else if ( newlen < 0 && errno != EAGAIN
+#ifndef _WIN32
+		&& errno != EWOULDBLOCK
+#endif
+		) {
 		printf( "WARNING: recv errored: %s (errno %d)\n", strerror( errno ), errno );
 	}
 }
@@ -342,7 +364,7 @@ void IrcClient::Disconnect( const char *reason ) {
 	sprintf( buf, "QUIT :%s\r\n", reason );
 	sendall( sock, buf, strlen( buf ), 0 );
 
-	close( sock );
+	closesocket( sock );
 	sock = 0;
 
 	printf( "Disconnected (%s)\n", reason );

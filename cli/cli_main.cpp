@@ -24,7 +24,9 @@ freely, subject to the following restrictions:
 #include <stdio.h>
 #include <signal.h>
 #include <string.h>
-#ifndef _WIN32
+#ifdef _WIN32
+#include <winsock2.h>
+#else
 #include <termios.h>
 #include <sys/select.h>
 #include <unistd.h>

@@ -5,6 +5,10 @@ option( BUILD_CLI "Build Angel Command-line Interface" 1 )
 option( BUILD_IRC "Build Angel IRC client" 1 )
 option( BUILD_TEST "Build Angel Lexer Test" 1 )
 
+if (MINGW)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libgcc -static-libstdc++")
+endif()
+
 set( FRAMEWORK_SRCS
 	framework/conversation.cpp
 	framework/string.cpp
@@ -32,10 +36,18 @@ set( TEST_SRCS
 
 if ( BUILD_CLI )
 	add_executable(angelcli ${CLI_SRCS})
+
+	if(WIN32)
+		target_link_libraries(angelcli ws2_32)
+	endif()
 endif()
 
 if ( BUILD_IRC )
 	add_executable(angelirc ${IRC_SRCS})
+
+	if(WIN32)
+		target_link_libraries(angelirc ws2_32)
+	endif()
 endif()
 
 if ( BUILD_TEST )
