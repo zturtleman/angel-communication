@@ -15,7 +15,7 @@ set( FRAMEWORK_SRCS
 
 set( CLI_SRCS
 	${FRAMEWORK_SRCS}
-	cli/main.cpp
+	cli/cli_main.cpp
 )
 
 set( IRC_SRCS
