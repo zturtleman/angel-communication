@@ -13,4 +13,4 @@
 *.a
 
 # Commonly used for cmake build directory
-build/*
+build
