@@ -137,18 +137,19 @@ int main( int argc, char **argv )
 
 	Conversation room;
 
+	bot.updateName( "Angel" );
+	bot.setGender( GENDER_FEMALE );
+	room.addPersona( &bot );
+
+	if ( argc >= 2 && !strcmp( argv[1], "--two" ) ) {
+		bot2.updateName( "Sera" );
+		bot2.setGender( GENDER_FEMALE );
+		room.addPersona( &bot2 );
+	}
+
 	user.updateName( "User" );
 	user.setGender( GENDER_MALE );
 	user.setAutoChat( false );
-
-	bot.updateName( "Angel" );
-	bot.setGender( GENDER_FEMALE );
-
-	bot2.updateName( "Sera" );
-	bot2.setGender( GENDER_FEMALE );
-
-	room.addPersona( &bot );
-	room.addPersona( &bot2 );
 	room.addPersona( &user );
 
 
