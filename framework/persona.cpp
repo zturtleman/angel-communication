@@ -90,7 +90,7 @@ void Persona::personaConnect( Conversation *con, Persona *persona ) {
 		con->addMessage( this, s );
 }
 
-void Persona::receiveMessage( Conversation *con, Persona *speaker, const String &text, int messageNum )
+void Persona::receiveMessage( Conversation *con, Persona *speaker, const String &text, int messageNum, const String &addressee )
 {
 	if ( !this->autoChat )
 		return;
@@ -102,7 +102,7 @@ void Persona::receiveMessage( Conversation *con, Persona *speaker, const String 
 		this->nextUpdateTime = time( NULL ) + 2;
 	}
 
-	this->messages.push_back( new Message( con, speaker, text, messageNum ) );
+	this->messages.push_back( new Message( con, speaker, text, messageNum, addressee ) );
 }
 
 float Persona::getSleepTime() {
@@ -185,6 +185,28 @@ struct greetingType_s {
 	{ NULL, 0, 0 } // for random, NULL means repeat whatever greeting person said (including special ones).
 };
 
+int Persona::GetGreetingAddressee( const Lexer &messageTokens, String &messageAddressee )
+{
+	String full = messageTokens.toString(); // this kind of sucks.
+
+	messageAddressee = "";
+
+	for (int i = 0; greetingTypes[i].text != NULL; ++i )
+	{
+		if ( full.icompareTo( greetingTypes[i].text, strlen(greetingTypes[i].text) ) == 0 )
+		{
+			// Ex: Hi Bob
+			if ( greetingTypes[i].subjectStartToken < messageTokens.getNumTokens() ) {
+				messageAddressee = messageTokens[greetingTypes[i].subjectStartToken];
+			}
+
+			return i;
+		}
+	}
+
+	return -1;
+}
+
 struct statement_s {
 	const char	*msg, *reply;
 	bool		random;
@@ -201,6 +223,8 @@ struct statement_s {
 	{ "Dummy", "It's not my fault.", false },
 	{ "Stupid", "It's not my fault.", false },
 	{ "make", "You need to quit before you can rebuilt", false },
+	{ "Can I ask a question", "Don't ask to ask. Just ask your question.", false },
+	{ "Can I ask you a question", "Don't ask to ask. Just ask your question.", false },
 	{ NULL, NULL, false }
 };
 
@@ -249,15 +273,20 @@ bool Persona::processMessage( Message *message )
 	Persona *from = message->from;
 	String full( message->text );
 	int messageNum = message->messageNum;
+	String addressee = message->addressee;
+	bool isAddressedToAnyone = !addressee.icompareTo( "*anybody" );
+	bool isAddressedToMe = !getName().icompareTo( addressee );
+	bool isAddressee = ( isAddressedToAnyone || isAddressedToMe );
 	Lexer tokens( full );
 
-	// ignore pointless auto chat (otherwise bots get stuck repeating it...)
-	if ( full == "I don't know how to parse that statement, sorry." )
+	// hmm... these message might be useful for learning about people.
+	// all this funtion does is reply so ignore messages not addressed to this bot for now.
+	if ( !isAddressee ) {
 		return true;
-
-	// TODO: ignore messages that start with someone elses name?
+	}
 
 	if ( tokens[0] == this->name ) {
+		bool tookAction = false;
 		bool enable = false;
 		String s;
 
@@ -272,36 +301,58 @@ bool Persona::processMessage( Message *message )
 			enable = true;
 		}
 
-		if ( tokens[2] == "fun" ) {
-			this->funReplies = enable;
-		}
-
+		// if one of the above commands
 		if ( !s.isEmpty() ) {
-			s.append( " " );
-			s.append( tokens.toString( 2 ) );
-			s.append( " as you requested." );
-			con->addMessage( this, s );
+			if ( tokens[2] == "fun" ) {
+				this->funReplies = enable;
+				tookAction = true;
+			}
+
+			if ( tookAction ) {
+				s.append( " " );
+				s.append( tokens.toString( 2 ) );
+				s.append( " as you requested." );
+				con->addMessage( this, s );
+			} else {
+				con->addMessage( this, "Hmm? I don't understand" );
+				return true;
+			}
 			return true;
 		}
 
 		if ( tokens[1] == "set" ) {
 			if ( tokens[2] == "name" ) {
 				this->tryName( tokens.toString( 3 ) );
+				tookAction = true;
 			}
-			if ( tokens[2] == "gender" ) {
+			else if ( tokens[2] == "gender" ) {
 				if ( tolower( tokens[3][0] ) == 'f' ) {
 					this->setGender( GENDER_FEMALE );
+					tookAction = true;
 				} else if ( tolower( tokens[3][0] ) == 'm' ) {
 					this->setGender( GENDER_MALE );
+					tookAction = true;
 				}
 			}
 
-			s.append( "Set " );
-			s.append( tokens[2] );
-			s.append( " to " );
-			s.append( tokens.toString( 3 ) );
-			s.append( " as you requested." );
-			con->addMessage( this, s );
+			if ( tookAction ) {
+				s.append( "Set " );
+				s.append( tokens[2] );
+				s.append( " to " );
+				s.append( tokens.toString( 3 ) );
+				s.append( " as you requested." );
+				con->addMessage( this, s );
+				return true;
+			} else {
+				con->addMessage( this, "Hmm? I don't understand" );
+				return true;
+			}
+		}
+
+		// just said our name with nothing else or name followed by one of :,?!.~ or something
+		if ( tokens.getNumTokens() == 1 || ( tokens.getNumTokens() == 2 && tokens[1].getLen() == 1 ) ) {
+			// FIXME: if there is a later message from persona already don't need to respond here. Maybe add a time based expectation?
+			con->addMessage( this, "Yes?" );
 			return true;
 		}
 	}
@@ -361,6 +412,7 @@ bool Persona::processMessage( Message *message )
 					freeExp = false;
 				} else {
 					con->addMessage( this, "Guess not..." );
+					freeMessage = false;	// still respone to whatever was said. because I usually don't answer this...
 				}
 			}
 			else if ( waitReply == WR_LISTENING_TO_ME ) {
@@ -424,66 +476,71 @@ bool Persona::processMessage( Message *message )
 		}
 	}
 
-	for (int i = 0; greetingTypes[i].text != NULL; ++i )
-	{
-		if ( full.icompareTo( greetingTypes[i].text, strlen(greetingTypes[i].text) ) == 0 )
-		{
-			bool bye = !!( greetingTypes[i].flags & GTF_BYE );
-			bool night = !!( greetingTypes[i].flags & GTF_NIGHT );
-
-			// Ex: Hi Bob
-			if ( greetingTypes[i].subjectStartToken < tokens.getNumTokens() ) {
-				if ( tokens[greetingTypes[i].subjectStartToken].icompareTo( this->name ) != 0 ) {
-					// greeted someone else, ignore.
-					return true;
-				}
-			}
-
-			if ( ( greetingTypes[i].flags & GTF_SPECIAL ) && rand() & 1 ) {
-				// repeat whatever they said, which could be a special greeting.
-				con->addMessage( this, greetingTypes[i].text );
-			}
-			else
-			{
-				for ( int n = 0; n < ARRAY_LEN( greetingTypes ); n++ ) {
-					int r = rand() / (float)RAND_MAX * ARRAY_LEN( greetingTypes )-1;
-					if ( greetingTypes[r].flags & GTF_SPECIAL )
-						continue;
-					if ( !!( greetingTypes[r].flags & GTF_NIGHT ) != night )
-						continue;
-					if ( !!( greetingTypes[r].flags & GTF_BYE ) != bye )
-						continue;
-
-					String s;
-
-					if ( greetingTypes[r].text == NULL ) {
-						// repeat whatever they said, which could be a special greeting.
-						s = greetingTypes[i].text;
-					} else {
-						s = greetingTypes[r].text;
-					}
-
-					s.append( " " );
-					s.append( from->getName() );
-					con->addMessage( this, s );
-					break;
-				}
-			}
-			return true;
-		}
+	// FIXME: bot doesn't actually care about greeting addressee here (but reuses code to get greeting num),
+	//		  Conversation::addMessage put addressee in message->addressee which improves handling a lot vs just deciding based on *this* message.
+	String greetingAddressee;
+	int greetingNum = GetGreetingAddressee( full, greetingAddressee );
+	if ( greetingNum != -1 && !isAddressee ) {
+		// greeted someone else
+		return true;
 	}
+	else if ( greetingNum != -1 && isAddressee ) {
+		// greeted us or /everyone/
+		int i = greetingNum;
+		bool bye = !!( greetingTypes[i].flags & GTF_BYE );
+		bool night = !!( greetingTypes[i].flags & GTF_NIGHT );
+
+		if ( ( greetingTypes[i].flags & GTF_SPECIAL ) && rand() & 1 ) {
+			// repeat whatever they said, which could be a special greeting.
+			con->addMessage( this, greetingTypes[i].text );
+		}
+		else
+		{
+			for ( int n = 0; n < ARRAY_LEN( greetingTypes ); n++ ) {
+				int r = rand() / (float)RAND_MAX * ARRAY_LEN( greetingTypes )-1;
+				if ( greetingTypes[r].flags & GTF_SPECIAL )
+					continue;
+				if ( !!( greetingTypes[r].flags & GTF_NIGHT ) != night )
+					continue;
+				if ( !!( greetingTypes[r].flags & GTF_BYE ) != bye )
+					continue;
+
+				String s;
+
+				if ( greetingTypes[r].text == NULL ) {
+					// repeat whatever they said, which could be a special greeting.
+					s = greetingTypes[i].text;
+				} else {
+					s = greetingTypes[r].text;
+				}
+
+				s.append( " " );
+				s.append( from->getName() );
+				con->addMessage( this, s );
+				break;
+			}
+		}
+
+		return true;
+	}
+
 
 	for (int i = 0; sentenceTypes[i].text != NULL; ++i )
 	{
 		if ( full.icompareTo( sentenceTypes[i].text, strlen(sentenceTypes[i].text) ) == 0 )
 		{
 			int subject, last;
-			bool mine = false, me = false, questionMark;
+			bool mine = false, me = false, belongsToSender = false, questionMark;
 			bool isAre = ( strstr( sentenceTypes[i].text, "are" ) != NULL );
 
 			subject = sentenceTypes[i].subjectStartToken;
 
-			if ( tokens[subject] == "your" || tokens[subject] == this->namePossesive )
+			if ( tokens[subject] == "my" )
+			{
+				subject++;
+				belongsToSender = true;
+			}
+			else if ( tokens[subject] == "your" || tokens[subject] == this->namePossesive )
 			{
 				subject++;
 				mine = true;
@@ -647,6 +704,8 @@ bool Persona::processMessage( Message *message )
 					{
 						// if not talking about me, then I don't know.
 						String s("Let's talk about me instead of ");
+						if ( belongsToSender )
+							s.append("your ");
 						s.append( tokens.toString( w, last ) ); // if use subject instead of w, repeats all the filler words
 						s.append(".");
 						con->addMessage( this, s );
@@ -655,7 +714,7 @@ bool Persona::processMessage( Message *message )
 				return true;
 			}
 
-			if ( this->funReplies && !me && !mine && (sentenceTypes[i].flags & STF_STATEMENT)) {
+			if ( this->funReplies && !me && !mine && !belongsToSender && (sentenceTypes[i].flags & STF_STATEMENT)) {
 				String s( "Let's talk about me instead of ");
 				if ( rand() % 3 == 0 ) {
 					s.append( "boring old " );
@@ -672,6 +731,8 @@ bool Persona::processMessage( Message *message )
 				s.append("my ");
 			else if ( me )
 				s.append("me "); // not proper american English... not sure what it should be.
+			else if ( belongsToSender )
+				s.append("your ");
 			s.append( tokens.toString( w, last ) ); // if use subject instead of w, repeats all the filler words
 			s.append( "?" );
 			con->addMessage( this, s );
@@ -683,9 +744,16 @@ bool Persona::processMessage( Message *message )
 	}
 
 	int subject, last;
-	bool mine = false, me = false, questionMark, sarcasmHint = false;
+	bool mine = false, me = false, belongsToSender = false, questionMark, sarcasmHint = false;
+	bool castleTheIsAre = false;
 
 	subject = 0;
+
+	if ( tokens[subject] == "Anyone" && tokens[subject+1] == "know" ) {
+		subject += 2;
+		// Ex: Anyone know where my shoe is?
+		castleTheIsAre = true;
+	}
 
 	if ( tokens[subject] == "What" ) {
 		subject++;
@@ -699,7 +767,18 @@ bool Persona::processMessage( Message *message )
 		}*/
 	}
 
-	if ( tokens[subject] == "your" || tokens[subject] == this->namePossesive )
+	int tokenIs = -1;
+	if ( tokens[subject] == "What's" ) {
+		tokenIs = subject;
+		subject++;
+	}
+
+	if ( tokens[subject] == "my" )
+	{
+		subject++;
+		belongsToSender = true;
+	}
+	else if ( tokens[subject] == "your" || tokens[subject] == this->namePossesive )
 	{
 		subject++;
 		mine = true;
@@ -725,7 +804,7 @@ bool Persona::processMessage( Message *message )
 		}
 	}
 
-	int tokenIs = tokens.findExact( "is" );
+	tokenIs = tokenIs != -1 ? tokenIs : tokens.findExact( "is" );
 	int tokenAre = tokens.findExact( "are" );
 	// Ex: What game is fun? / What games are fun? / What? Games are fun?
 	if ( tokenIs >= 0 || tokenAre >= 0 ) {
@@ -736,6 +815,12 @@ bool Persona::processMessage( Message *message )
 		firstSplit = tokenIs;
 		if ( tokenIs < 0 || ( tokenAre >= 0 && tokenAre < tokenIs ) ) {
 			firstSplit = tokenAre;
+		}
+
+		// PROFORM THE CASTLING MOVEMENT OF THE IS or ARE IF AT END OF SENTENCE
+		if ( castleTheIsAre && firstSplit+1 >= tokens.getNumTokens() ) {
+			firstSplit = subject;
+			last--;
 		}
 
 		subjectB = firstSplit+1;
@@ -781,6 +866,8 @@ bool Persona::processMessage( Message *message )
 					s.append( "me being " );
 				else
 					s.append( "my " );
+			} else if ( belongsToSender ) {
+				s.append( "your " );
 			} else if ( firstSplit == tokenIs && w2 == subjectB ) { // if 'is' and no filler words
 				s.append( "the " );
 			}
@@ -810,6 +897,8 @@ bool Persona::processMessage( Message *message )
 					s.append( "me being " );
 				else
 					s.append( "my " );
+			} else if ( belongsToSender ) {
+				s.append( "your " );
 			} else if ( firstSplit == tokenIs && w2 == subjectB ) { // if 'is' and no filler words
 				s.append( "a " );
 			}
@@ -842,8 +931,10 @@ bool Persona::processMessage( Message *message )
 		}
 	}
 
-	if ( con->numPersonas() <= 2 || !this->funReplies ) {
-		con->addMessage( this, "I don't know how to parse that statement, sorry." );
+	if ( isAddressedToMe ) {
+		String s( from->getName() );
+		s.append( ", I don't know how to parse that statement." );
+		con->addMessage( this, s );
 	}
 	return true;
 }

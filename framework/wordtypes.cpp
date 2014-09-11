@@ -37,7 +37,7 @@ const char *falseWords[] = {
 };
 
 const char *trueWords[] = {
-	"true", "yes", "yeah", "okay", "mm", "mmm"
+	"true", "yes", "yeah", "yep", "ye", "aye", "okay", "mm", "mmm"
 };
 
 int	WordType( const String & str ) {

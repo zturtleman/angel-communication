@@ -81,13 +81,15 @@ class Persona
 
 		const String &getName( void ) const;
 
-
 		// Conversation communication
-		void receiveMessage( Conversation *con, Persona *speaker, const String &text, int messageNum );
+		void receiveMessage( Conversation *con, Persona *speaker, const String &text, int messageNum, const String &addressee );
 		void personaConnect( Conversation *con, Persona *persona );
 
 		void addExpectation( Conversation *c, Persona *f, WaitReply wr );
 		void addExpectation( Conversation *c, Persona *f, WaitReply wr, const String &str );
+
+		// static functions
+		static int	GetGreetingAddressee( const Lexer &messageTokens, String &greetingAddressee );
 };
 
 class Expectation
@@ -130,9 +132,10 @@ class Message
 		Persona			*from;
 		String			text; // unprocessed message tokens.
 		int				messageNum;
+		String			addressee;
 
-		Message( Conversation *c, Persona *f, const String & t, int num )
-			: con( c ), from( f ), text( t ), messageNum( num )
+		Message( Conversation *c, Persona *f, const String & t, int num, const String & a )
+			: con( c ), from( f ), text( t ), messageNum( num ), addressee( a )
 		{
 		}
 
@@ -142,6 +145,7 @@ class Message
 			this->from = m.from;
 			this->text = m.text;
 			this->messageNum = m.messageNum;
+			this->addressee = m.addressee;
 			return *this;
 		}
 };

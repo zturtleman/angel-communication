@@ -35,6 +35,7 @@ class Conversation
 {
 	private:
 		std::vector<Persona*> personas;
+		std::vector<String> lastAddressee;
 		size_t	messageNum;
 
 	public:
