@@ -162,7 +162,11 @@ void ANGELC_PersonaRename( const char *oldname, const char *newname ) {
 }
 
 // IRC server says someone renamed
+// TODO: Update Conversation lastAddressees
+// TODO: Support multiple IRC networks
 void ANGEL_IRC_NickChange( const char *oldname, const char *newname ) {
+	printf( "* %s renamed to %s\n", oldname, newname );
+
 	for ( int b = 0; b < numBots; b++ ) {
 		if ( bots[b].getName() == oldname ) {
 			bots[b].updateName( newname );
@@ -170,7 +174,17 @@ void ANGEL_IRC_NickChange( const char *oldname, const char *newname ) {
 		}
 	}
 
-	printf( "ANGEL_IRC_NickChange: Unhandled rename. %s -> %s\n", oldname, newname );
+	// Update direct conversation, so person can continue conversation instead of starting a new one.
+	// WISH: Might be better to have multiple names attached to conversations? Rename, quit, then rejoin with original name will cause a new conversation to be created if they direct chat again.
+	// WISH: Could want to attach old name if new name is attached. so if user pings out and reconnects while their ghost is still present (using a fallback name)
+	// WISH:   then rename to original name, we can 'learn' their alternate name(s). Actually, that might be useful as a general thing not just direct conversations.
+	// WISH:   Though, what to do if started conversation with alt-name then rename to name that already has a conversation? Dump the non-alt I guess or merge them (after there is stuff to merge).
+	for ( int i = 0; i < numCons; i++ ) {
+		if ( conlist[i].name == oldname ) {
+			conlist[i].name = newname;
+			break;
+		}
+	}
 }
 
 // wait until a set time passes or there is new socket data

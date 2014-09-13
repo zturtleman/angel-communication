@@ -352,6 +352,7 @@ bool Persona::processMessage( Message *message )
 		// just said our name with nothing else or name followed by one of :,?!.~ or something
 		if ( tokens.getNumTokens() == 1 || ( tokens.getNumTokens() == 2 && tokens[1].getLen() == 1 ) ) {
 			// FIXME: if there is a later message from persona already don't need to respond here. Maybe add a time based expectation?
+			//			also, handling this *before* expectations causes badness. Should either drop expections (seems wrong) or ... I'm not sure.
 			con->addMessage( this, "Yes?" );
 			return true;
 		}
