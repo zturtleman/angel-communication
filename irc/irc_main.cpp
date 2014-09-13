@@ -66,6 +66,7 @@ void ANGEL_IRC_ReceiveMessage( const char *to, const char *from, const char *cha
 {
 	int i;
 	Persona *speaker = NULL;
+	const char *conversationName = channel ? channel : from;
 
 	for ( i = 0; i < numBots; i++ ) {
 		if ( bots[i].getName() == from ) {
@@ -74,37 +75,34 @@ void ANGEL_IRC_ReceiveMessage( const char *to, const char *from, const char *cha
 		}
 	}
 
-	if ( !speaker ) {
-		// HACK: should have a persona for everyone?...
-		user.updateName( from );
-		speaker = &user;
+	// Don't re-add bot messages (this would cause them to be sent to server again)
+	if ( speaker ) {
+		return;
 	}
+
+	// HACK: should have a persona for everyone?...
+	user.updateName( from );
+	speaker = &user;
 
 	if ( channel ) {
 		// HACK: if there are multiple bots in the same channel and using same conversation,
 		// the messages will be duplicated (so only add for first bot...)
 		if ( bots[0].getName().icompareTo( to ) != 0 )
 			return;
+	}
 
-		// Don't re-add bot messages (this would cause them to be sent to server again)
-		if ( speaker != &user ) {
+	for ( i = 0; i < numCons; i++ ) {
+		if ( conlist[i].name == conversationName ) {
+			printf( "%s <%s> %s\n", conversationName, from, message );
+			conlist[i].con.addMessage( speaker, message );
 			return;
 		}
-
-		for ( i = 0; i < numCons; i++ ) {
-			if ( conlist[i].name == channel ) {
-				conlist[i].con.addMessage( speaker, message );
-				break;
-			}
-		}
-
-		if ( i != numCons )
-			return;
 	}
 
 	// Create new direct conversation
 	if ( i < MAX_CONS ) {
-		conlist[i].name = from;
+		printf( "Started new IRC conversation (%s wants to chat with %s).\n", from, to );
+		conlist[i].name = conversationName;
 		conlist[i].con.addPersona( speaker );
 		for ( int b = 0; b < numBots; b++ ) {
 			if ( bots[b].getName() == to ) {
@@ -112,13 +110,15 @@ void ANGEL_IRC_ReceiveMessage( const char *to, const char *from, const char *cha
 				break;
 			}
 		}
+		printf( "%s <%s> %s\n", conversationName, from, message );
 		conlist[i].con.addMessage( speaker, message );
 		numCons++;
 	} else {
 		// TODO: Try to free a unused direct conversation
 		for ( int b = 0; b < numBots; b++ ) {
 			if ( bots[b].getName() == to ) {
-				bot_irc[b].SayTo( channel ? channel : from, "Sorry, no available conversation slot." );
+				bot_irc[b].SayTo( conversationName, "Sorry, no available conversation slot." );
+				printf( "WARNING: All IRC conversation slots full (%s wants to chat with %s).\n", from, to );
 				break;
 			}
 		}
@@ -143,6 +143,7 @@ void ANGELC_PrintMessage( const AngelCommunication::Conversation *con, const Ang
 	for ( int i = 0; i < numCons; i++ ) {
 		if ( &conlist[i].con == con ) {
 			irc->SayTo( conlist[i].name.c_str(), message );
+			printf( "%s <%s> %s\n", conlist[i].name.c_str(), irc->GetNick(), message );
 			break;
 		}
 	}
