@@ -356,6 +356,14 @@ bool Persona::processMessage( Message *message )
 			con->addMessage( this, "Yes?" );
 			return true;
 		}
+
+		// Ex: "Bob:" or "Bob,"
+		// Remove bot name followed by colon or comma as they (usually) are just to show you're addressing "Bob" (which has already been detected)
+		if ( tokens[1] == ":" || tokens[1] == "," ) {
+			tokens.removeToken( 0 ); // rename name
+			tokens.removeToken( 0 ); // remove colon or comma. 0 again because now it's the first token.
+			full = tokens.toString();
+		}
 	}
 
 	bool didStatementGame = false;

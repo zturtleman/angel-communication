@@ -244,6 +244,7 @@ void Lexer::removeToken(unsigned int index) {
 		return;
 	}
 
+	this->spaceAfterToken.erase( this->spaceAfterToken.begin() + index );
 	this->tokens.erase( this->tokens.begin() + index );
 }
 
