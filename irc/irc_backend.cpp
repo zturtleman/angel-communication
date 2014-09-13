@@ -42,7 +42,7 @@ freely, subject to the following restrictions:
 #define closesocket(x) close(x)
 #endif
 
-static int sendall( int fd, const char *s, int len, int flags ) {
+int IrcClient::sendall( int fd, const char *s, int len, int flags ) {
 	int left = len;
 	int val;
 
@@ -57,11 +57,14 @@ static int sendall( int fd, const char *s, int len, int flags ) {
 		left -= val;
 	}
 
+	// update time last packet was sent
+	this->packetTime = std::time( NULL );
+
 	return 0;
 }
 
 IrcClient::IrcClient()
-: nick( NULL ), channel( NULL ), sock( 0 ), connected( false ), msgnum( 0 ), sentUSER ( false )
+: nick( NULL ), channel( NULL ), sock( 0 ), connected( false ), msgnum( 0 ), sentUSER ( false ), packetTime ( 0 )
 {
 	data[0] = 0;
 }
@@ -160,14 +163,17 @@ void IrcClient::Update() {
 			}
 			eol = p;
 
-			printf("%s: MESSAGE %d: %s\n", this->nick, msgnum, buf );
+			// debug helper
+			//printf("%s: MESSAGE %d: %s\n", this->nick, msgnum, buf );
 			msgnum++;
 
-		    if ( !strncmp( buf, "PING ", 5 ) ) {
-		        buf[1] = 'O';
-		        sendall( sock, buf, strlen(buf), 0 );
-		    }
-		    else if ( buf[0] == ':' ) {
+			if ( !strncmp( buf, "PING ", 5 ) ) {
+				// server sent PING request, change to PONG and send back
+				buf[1] = 'O';
+				sendall( sock, buf, strlen(buf), 0 );
+				//printf("%s: SENT: %s\n", this->nick, buf );
+			}
+			else if ( buf[0] == ':' ) {
 				char *user = NULL;
 				char *command = NULL;
 				char *where = NULL;
@@ -251,9 +257,11 @@ setMessage:
 					oldhead = head;
 				}
 
-				printf( "user=[%s], command=[%s], where=[%s], ctcp=[%s], message=[%s]\n", user, command, where, ctcp, message );
+				// debug helper
+				//printf( "user=[%s], command=[%s], where=[%s], ctcp=[%s], message=[%s]\n", user, command, where, ctcp, message );
 
 				if ( !command ) {
+					printf("WARNING: IRC message with no command. user=%s, where=%s, ctcp=%s, message=%s\n", user, where, ctcp, message );
 					continue;
 				}
 
@@ -268,6 +276,15 @@ setMessage:
 					ANGEL_IRC_NickChange( this->nick, msg );
 					RequestNick( msg );
 					UpdateNick( msg );
+				}
+				else if ( !strcmp( command, "PONG" ) && where && message ) {
+					// server replied to our PING request
+#if 0 // only useful for debugging
+					time_t sentTime = atol( message );
+					time_t currentTime = time( NULL );
+					double diffSeconds = difftime( currentTime, sentTime );
+					printf("%s: ping response from %s (%.f seconds)\n", this->nick, where, diffSeconds );
+#endif
 				}
 				else if ( !strcmp( command, "NICK" ) && user && message ) {
 					const char *oldname = user;
@@ -331,6 +348,9 @@ setMessage:
 						ANGEL_IRC_ReceiveMessage( nick, user, channelName, message );
 					}
 				}
+				else {
+					printf("WARNING: Unhandled IRC command (%s). user=%s, where=%s, ctcp=%s, message=%s\n", command, user, where, ctcp, message );
+				}
 			}
 		}
 
@@ -343,6 +363,7 @@ setMessage:
 
 	if ( newlen == 0 ) {
 		Disconnect( "Connection closed" );
+		return;
 	}
 	// EAGAIN/EWOULDBLOCK just means no data available right now, try again later
 	else if ( newlen < 0 && errno != EAGAIN
@@ -351,6 +372,14 @@ setMessage:
 #endif
 		) {
 		printf( "WARNING: recv errored: %s (errno %d)\n", strerror( errno ), errno );
+	}
+
+	// ping server to keep connection alive
+	time_t currentTime = time( NULL );
+	if ( difftime( currentTime, this->packetTime ) >= IDLE_PING_SECONDS ) {
+		// TODO: use a msec time, time(NULL) is seconds. would need to fix the PONG handler too.
+		sprintf( msg, "PING %ld\r\n", (long)currentTime );
+		sendall( sock, msg, strlen(msg), 0 );
 	}
 }
 
@@ -371,6 +400,7 @@ void IrcClient::Disconnect( const char *reason ) {
 
 	connected = false;
 	sentUSER = false;
+	packetTime = 0;
 }
 
 void IrcClient::RequestNick( const char *nick ) {
@@ -420,8 +450,11 @@ void IrcClient::SayTo( const char *target, const char *message ) {
 		sprintf( msg, "PRIVMSG %s :%s\r\n", target, message );
 	}
 	sendall( sock, msg, strlen(msg), 0 );
+}
 
-	printf( "%s: SAY: %s", this->nick, msg );
+const char *IrcClient::GetNick() const
+{
+	return nick;
 }
 
 int IrcClient::GetSocket() const

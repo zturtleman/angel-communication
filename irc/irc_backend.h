@@ -23,6 +23,7 @@ freely, subject to the following restrictions:
 #define ANGEL_IRC_BACKEND_INCLUDED
 
 #include "../framework/angel.h"
+#include <ctime>
 
 void ANGEL_IRC_ReceiveMessage( const char *to, const char *from, const char *channel, const char *message );
 void ANGEL_IRC_NickChange( const char *oldnick, const char *newnick );
@@ -40,10 +41,17 @@ class IrcClient {
 		int msgnum;
 		char data[1025]; // hold up to 2 512 character IRC messages
 		bool sentUSER;
+		time_t packetTime;
 
 		void UpdateNick( const char *nick );
 
+		int sendall( int fd, const char *s, int len, int flags );
+
 	public:
+		// after not sending a packet to server for 30 seconds,
+		// send a ping to keep the connection alive.
+		static const int IDLE_PING_SECONDS = 30;
+
 		IrcClient();
 		~IrcClient();
 		bool Connect( const char *server, const char *port, const char *nick, const char *channel );
@@ -53,6 +61,7 @@ class IrcClient {
 		void RequestNick( const char *nick );
 		void SayTo( const char *target, const char *message );
 
+		const char *GetNick() const;
 		int GetSocket() const;
 		bool Connected() const;
 };

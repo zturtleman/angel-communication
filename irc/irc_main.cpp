@@ -256,7 +256,7 @@ int main( int argc, char **argv )
 	numCons++;
 
 	bot_irc[0].Connect( IRC_SERVER, IRC_PORT, bots[0].getName().c_str(), IRC_CHANNEL );
-	std::time_t	connectTime = std::time( NULL );
+	time_t connectTime = time( NULL );
 
 	while (1)
 	{
@@ -283,6 +283,11 @@ int main( int argc, char **argv )
 			if ( delay < 0 || ( botDelay >= 0 && botDelay < delay ) ) {
 				delay = botDelay;
 			}
+		}
+
+		// wake up to ping server if idle too long
+		if ( delay < 0 || delay > IrcClient::IDLE_PING_SECONDS ) {
+			delay = IrcClient::IDLE_PING_SECONDS;
 		}
 
 		ircIdle( delay );
