@@ -53,6 +53,7 @@ int main( int argc, char **argv )
 {
 	const char *filename = "test/test.txt";
 	Lexer lexer;
+	Sentence sentence;
 
 	printf( "Angel Communication Non-interactive Lexer Test Edition\n" );
 
@@ -86,6 +87,33 @@ int main( int argc, char **argv )
 
 		for ( int i = 0; i < lexer.getNumTokens(); i++ ) {
 			printf( "  TOKEN %02d: %s\n", i, lexer[i].c_str() );
+		}
+
+		sentence.clear();
+		sentence.parse( line.c_str() );
+
+		printf( "  Sentence parts: %d\n", sentence.parts.size() );
+		for ( int part = 0; part < sentence.parts.size(); ++part ) {
+			printf( "  %d: Type: %s", part, sentence.parts[part].getFunctionName() );
+
+			if ( !sentence.parts[part].interrogative.isEmpty() ) {
+				printf( " Interrogative: %s", sentence.parts[part].interrogative.c_str() );
+			}
+
+			if ( !sentence.parts[part].linkingVerb.isEmpty() && sentence.parts[part].predicate.isEmpty() ) {
+				printf( " Linkverb: %s", sentence.parts[part].linkingVerb.c_str() );
+			}
+
+			if ( !sentence.parts[part].subject.isEmpty() ) {
+				printf( " Subject: %s", sentence.parts[part].subject.c_str() );
+			}
+
+			if ( !sentence.parts[part].linkingVerb.isEmpty() && !sentence.parts[part].predicate.isEmpty() ) {
+				printf( " Linkverb: %s", sentence.parts[part].linkingVerb.c_str() );
+				printf( " Predicate: %s", sentence.parts[part].predicate.c_str() );
+			}
+
+			printf("\n");
 		}
 	}
 

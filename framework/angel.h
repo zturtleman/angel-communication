@@ -24,6 +24,7 @@ freely, subject to the following restrictions:
 
 #include "string.h"
 #include "lexer.h"
+#include "sentence.h"
 #include "persona.h"
 #include "conversation.h"
 

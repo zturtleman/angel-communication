@@ -13,6 +13,7 @@ set( FRAMEWORK_SRCS
 	framework/conversation.cpp
 	framework/string.cpp
 	framework/lexer.cpp
+	framework/sentence.cpp
 	framework/persona.cpp
 	framework/wordtypes.cpp
 )
