@@ -96,13 +96,13 @@ bool IrcClient::Connect( const char *server, const char *port, const char *nick,
 	hints.ai_protocol = IPPROTO_TCP;
 
 	if ( ( ret = getaddrinfo( server, port, &hints, &res ) ) != 0 ) {
-		printf( "%s", gai_strerror( ret ) );
+		printf( "Connected to %s:%s failed: getaddrinfo returned %d: %s\n", server, port, ret, gai_strerror( ret ) );
 		return false;
 	}
 
 	sock = socket( res->ai_family, res->ai_socktype, res->ai_protocol );
 	if ( ( ret = connect( sock, res->ai_addr, res->ai_addrlen ) ) != 0 ) {
-		printf( "%s", gai_strerror( ret ) );
+		printf( "Connected to %s:%s failed: connect returned %d: %s\n", server, port, ret, gai_strerror( ret ) );
 		return false;
 	}
 
@@ -366,7 +366,9 @@ setMessage:
 	}
 	// EAGAIN/EWOULDBLOCK just means no data available right now, try again later
 	else if ( newlen < 0 && errno != EAGAIN
-#ifndef _WIN32
+#ifdef _WIN32 // Windows doesn't define EWOULDBLOCK and has errno set to 0 when nothing is available?
+		&& errno != 0
+#else
 		&& errno != EWOULDBLOCK
 #endif
 		) {
