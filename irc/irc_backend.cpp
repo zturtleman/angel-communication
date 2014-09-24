@@ -96,13 +96,13 @@ bool IrcClient::Connect( const char *server, const char *port, const char *nick,
 	hints.ai_protocol = IPPROTO_TCP;
 
 	if ( ( ret = getaddrinfo( server, port, &hints, &res ) ) != 0 ) {
-		printf( gai_strerror( ret ) );
+		printf( "%s", gai_strerror( ret ) );
 		return false;
 	}
 
 	sock = socket( res->ai_family, res->ai_socktype, res->ai_protocol );
 	if ( ( ret = connect( sock, res->ai_addr, res->ai_addrlen ) ) != 0 ) {
-		printf( gai_strerror( ret ) );
+		printf( "%s", gai_strerror( ret ) );
 		return false;
 	}
 

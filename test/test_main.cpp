@@ -92,7 +92,7 @@ int main( int argc, char **argv )
 		sentence.clear();
 		sentence.parse( line.c_str() );
 
-		printf( "  Sentence parts: %d\n", sentence.parts.size() );
+		printf( "  Sentence parts: %d\n", (int)sentence.parts.size() );
 		for ( int part = 0; part < sentence.parts.size(); ++part ) {
 			printf( "  %d: Type: %s", part, sentence.parts[part].getFunctionName() );
 
