@@ -31,7 +31,6 @@ freely, subject to the following restrictions:
 #endif
 
 #include <stdio.h> // printf
-#include <malloc.h> // free
 #include <errno.h> // errno
 
 #include <cstring>
