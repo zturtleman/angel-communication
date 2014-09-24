@@ -40,7 +40,6 @@ class IrcClient {
 		int sock; // socket handle
 		int msgnum;
 		char data[1025]; // hold up to 2 512 character IRC messages
-		bool sentUSER;
 		time_t packetTime;
 
 		void UpdateNick( const char *nick );
@@ -54,7 +53,7 @@ class IrcClient {
 
 		IrcClient();
 		~IrcClient();
-		bool Connect( const char *server, const char *port, const char *nick, const char *channel );
+		bool Connect( const char *server, const char *port, const char *nick, const char *ident, const char *realName, const char *channel );
 		void Update();
 		void Disconnect( const char *reason );
 

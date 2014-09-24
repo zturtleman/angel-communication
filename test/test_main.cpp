@@ -33,15 +33,15 @@ using namespace AngelCommunication;
 
 void ANGELC_PrintMessage( const AngelCommunication::Conversation *con, const AngelCommunication::Persona *speaker, const char *message ) {
 	if ( !strncmp( message, "/me", 3 ) && ( message[3] == ' ' || message[3] == '\0' ) ) {
-		printf("* %s%s\n", speaker->getName().c_str(), &message[3] );
+		printf("* %s%s\n", speaker->getNick().c_str(), &message[3] );
 	} else {
-		printf("%s> %s\n", speaker->getName().c_str(), message );
+		printf("%s> %s\n", speaker->getNick().c_str(), message );
 	}
 }
 
 // this is called when persona wants to change name
-void ANGELC_PersonaRename( const char *oldname, const char *newname ) {
-	printf("* %s is now known as %s\n", oldname, newname );
+void ANGELC_PersonaRename( const char *oldnick, const char *newnick ) {
+	printf("* %s is now known as %s\n", oldnick, newnick );
 }
 
 void sighandler( int signum ) {

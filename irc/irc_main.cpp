@@ -40,6 +40,7 @@ using namespace AngelCommunication;
 #define IRC_SERVER	"wizard.local"
 #define IRC_PORT	"6667"
 #define IRC_CHANNEL	"#sandbox"
+#define IRC_IDENT	"angelcom" // user identifier, part of host name shown to other users
 #define IRC_CONNECT_DELAY 20 // wait 20 seconds between connecting each bot
 
 
@@ -69,7 +70,7 @@ void ANGEL_IRC_ReceiveMessage( const char *to, const char *from, const char *cha
 	const char *conversationName = channel ? channel : from;
 
 	for ( i = 0; i < numBots; i++ ) {
-		if ( bots[i].getName() == from ) {
+		if ( bots[i].getNick() == from ) {
 			speaker = &bots[i];
 			break;
 		}
@@ -81,13 +82,13 @@ void ANGEL_IRC_ReceiveMessage( const char *to, const char *from, const char *cha
 	}
 
 	// HACK: should have a persona for everyone?...
-	user.updateName( from );
+	user.updateNick( from );
 	speaker = &user;
 
 	if ( channel ) {
 		// HACK: if there are multiple bots in the same channel and using same conversation,
 		// the messages will be duplicated (so only add for first bot...)
-		if ( bots[0].getName().icompareTo( to ) != 0 )
+		if ( bots[0].getNick().icompareTo( to ) != 0 )
 			return;
 	}
 
@@ -105,7 +106,7 @@ void ANGEL_IRC_ReceiveMessage( const char *to, const char *from, const char *cha
 		conlist[i].name = conversationName;
 		conlist[i].con.addPersona( speaker );
 		for ( int b = 0; b < numBots; b++ ) {
-			if ( bots[b].getName() == to ) {
+			if ( bots[b].getNick() == to ) {
 				conlist[i].con.addPersona( &bots[b] );
 				break;
 			}
@@ -116,7 +117,7 @@ void ANGEL_IRC_ReceiveMessage( const char *to, const char *from, const char *cha
 	} else {
 		// TODO: Try to free a unused direct conversation
 		for ( int b = 0; b < numBots; b++ ) {
-			if ( bots[b].getName() == to ) {
+			if ( bots[b].getNick() == to ) {
 				bot_irc[b].SayTo( conversationName, "Sorry, no available conversation slot." );
 				printf( "WARNING: All IRC conversation slots full (%s wants to chat with %s).\n", from, to );
 				break;
@@ -150,26 +151,26 @@ void ANGELC_PrintMessage( const AngelCommunication::Conversation *con, const Ang
 }
 
 // this is called when persona wants to change name
-void ANGELC_PersonaRename( const char *oldname, const char *newname ) {
+void ANGELC_PersonaRename( const char *oldnick, const char *newnick ) {
 	for ( int b = 0; b < numBots; b++ ) {
-		if ( bots[b].getName() == oldname ) {
-			bot_irc[b].RequestNick( newname );
+		if ( bots[b].getNick() == oldnick ) {
+			bot_irc[b].RequestNick( newnick );
 			return;
 		}
 	}
 
-	printf( "ANGELC_PersonaRename: Unhandled local rename. %s -> %s\n", oldname, newname );
+	printf( "ANGELC_PersonaRename: Unhandled local rename. %s -> %s\n", oldnick, newnick );
 }
 
 // IRC server says someone renamed
 // TODO: Update Conversation lastAddressees
 // TODO: Support multiple IRC networks
-void ANGEL_IRC_NickChange( const char *oldname, const char *newname ) {
-	printf( "* %s renamed to %s\n", oldname, newname );
+void ANGEL_IRC_NickChange( const char *oldnick, const char *newnick ) {
+	printf( "* %s renamed to %s\n", oldnick, newnick );
 
 	for ( int b = 0; b < numBots; b++ ) {
-		if ( bots[b].getName() == oldname ) {
-			bots[b].updateName( newname );
+		if ( bots[b].getNick() == oldnick ) {
+			bots[b].updateNick( newnick );
 			return;
 		}
 	}
@@ -180,8 +181,8 @@ void ANGEL_IRC_NickChange( const char *oldname, const char *newname ) {
 	// WISH:   then rename to original name, we can 'learn' their alternate name(s). Actually, that might be useful as a general thing not just direct conversations.
 	// WISH:   Though, what to do if started conversation with alt-name then rename to name that already has a conversation? Dump the non-alt I guess or merge them (after there is stuff to merge).
 	for ( int i = 0; i < numCons; i++ ) {
-		if ( conlist[i].name == oldname ) {
-			conlist[i].name = newname;
+		if ( conlist[i].name == oldnick ) {
+			conlist[i].name = newnick;
 			break;
 		}
 	}
@@ -243,21 +244,23 @@ int main( int argc, char **argv )
 	signal(SIGINT, sighandler);
 	signal(SIGTERM, sighandler);
 
-	user.updateName( "User" );
+	user.updateNick( "User" );
 	user.setGender( GENDER_MALE );
 	user.setAutoChat( false );
 
-	bots[numBots].updateName( "Angel" );
+	bots[numBots].updateNick( "Angel" );
+	bots[numBots].setFullName( "Angelica Anarchy" );
 	bots[numBots].setGender( GENDER_FEMALE );
 	numBots++;
 
 	if ( argc >= 2 && !strcmp( argv[1], "--two" ) ) {
-		bots[numBots].updateName( "Sera" );
+		bots[numBots].updateNick( "Sera" );
+		bots[numBots].setFullName( "Seraph Anarchy" );
 		bots[numBots].setGender( GENDER_FEMALE );
 		numBots++;
 	} else {
 		// HACK always add extra persona so bot knows channel is "group chat" mode...
-		bots[numBots].updateName( "Dummy" );
+		bots[numBots].updateNick( "Dummy" );
 		bots[numBots].setAutoChat( false );
 		conlist[0].con.addPersona( &bots[numBots] );
 	}
@@ -270,7 +273,7 @@ int main( int argc, char **argv )
 	conlist[0].name = IRC_CHANNEL;
 	numCons++;
 
-	bot_irc[0].Connect( IRC_SERVER, IRC_PORT, bots[0].getName().c_str(), IRC_CHANNEL );
+	bot_irc[0].Connect( IRC_SERVER, IRC_PORT, bots[0].getNick().c_str(), IRC_IDENT, bots[0].getFullName().c_str(), IRC_CHANNEL );
 	time_t connectTime = time( NULL );
 
 	while (1)
@@ -290,7 +293,7 @@ int main( int argc, char **argv )
 				botDelay = ( connectTime + IRC_CONNECT_DELAY ) - time( NULL );
 
 				if ( botDelay <= 0 ) {
-					bot_irc[i].Connect( IRC_SERVER, IRC_PORT, bots[i].getName().c_str(), IRC_CHANNEL );
+					bot_irc[i].Connect( IRC_SERVER, IRC_PORT, bots[i].getNick().c_str(), IRC_IDENT, bots[i].getFullName().c_str(), IRC_CHANNEL );
 					connectTime = time( NULL );
 				}
 			}

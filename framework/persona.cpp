@@ -32,7 +32,8 @@ namespace AngelCommunication
 
 Persona::Persona()
 {
-	this->name = "unknown";
+	this->nick = "unknown";
+	this->fullName = "unknown";
 	this->gender = GENDER_NONE;
 	this->autoChat = true;
 	this->funReplies = true;
@@ -40,25 +41,30 @@ Persona::Persona()
 	this->nextUpdateTime = std::time( NULL ) + 2;
 }
 
-void Persona::tryName( const String &name )
+void Persona::tryNick( const String &nick )
 {
-	if ( !this->name.icompareTo( "unknown" ) ) {
-		// HACK for initial name set :/
-		updateName( name );
+	if ( !this->nick.icompareTo( "unknown" ) ) {
+		// HACK for initial nick set :/
+		updateNick( nick );
 	} else {
-		String oldname = this->name;
-		ANGELC_PersonaRename( oldname.c_str(), name.c_str() );
+		String oldnick = this->nick;
+		ANGELC_PersonaRename( oldnick.c_str(), nick.c_str() );
 	}
 }
 
-void Persona::updateName( const String &name )
+void Persona::updateNick( const String &nick )
 {
-	this->name = name;
-	this->namePossesive = name;
-	if ( this->name[this->name.getLen()-1] == 's' )
-		this->namePossesive.append( "'" );
+	this->nick = nick;
+	this->nickPossesive = nick;
+	if ( this->nick[this->nick.getLen()-1] == 's' )
+		this->nickPossesive.append( "'" );
 	else
-		this->namePossesive.append( "'s" );
+		this->nickPossesive.append( "'s" );
+}
+
+void Persona::setFullName( const String &fullName )
+{
+	this->fullName = fullName;
 }
 
 void Persona::setGender( Gender gender )
@@ -71,9 +77,14 @@ void Persona::setAutoChat( bool autoChat )
 	this->autoChat = autoChat;
 }
 
-const String &Persona::getName( void ) const
+const String &Persona::getNick( void ) const
 {
-	return this->name;
+	return this->nick;
+}
+
+const String &Persona::getFullName( void ) const
+{
+	return this->fullName;
 }
 
 void Persona::personaConnect( Conversation *con, Persona *persona ) {
@@ -82,7 +93,7 @@ void Persona::personaConnect( Conversation *con, Persona *persona ) {
 
 	String s;
 	s = "Hi "; // TODO: use random greeting select here.
-	s.append( persona->name );
+	s.append( persona->nick );
 	s.append( "." );
 
 	// FIXME: disabled so bots don't get stuck replying to each other from the get go.
@@ -275,7 +286,7 @@ bool Persona::processMessage( Message *message )
 	int messageNum = message->messageNum;
 	String addressee = message->addressee;
 	bool isAddressedToAnyone = !addressee.icompareTo( "*anybody" );
-	bool isAddressedToMe = !getName().icompareTo( addressee );
+	bool isAddressedToMe = !this->nick.icompareTo( addressee );
 	bool isAddressee = ( isAddressedToAnyone || isAddressedToMe );
 	Lexer tokens( full );
 
@@ -285,7 +296,7 @@ bool Persona::processMessage( Message *message )
 		return true;
 	}
 
-	if ( tokens[0] == this->name ) {
+	if ( tokens[0] == this->nick ) {
 		bool tookAction = false;
 		bool enable = false;
 		String s;
@@ -321,8 +332,8 @@ bool Persona::processMessage( Message *message )
 		}
 
 		if ( tokens[1] == "set" ) {
-			if ( tokens[2] == "name" ) {
-				this->tryName( tokens.toString( 3 ) );
+			if ( tokens[2] == "name" || tokens[2] == "nick" ) {
+				this->tryNick( tokens.toString( 3 ) );
 				tookAction = true;
 			}
 			else if ( tokens[2] == "gender" ) {
@@ -360,7 +371,7 @@ bool Persona::processMessage( Message *message )
 		// Ex: "Bob:" or "Bob,"
 		// Remove bot name followed by colon or comma as they (usually) are just to show you're addressing "Bob" (which has already been detected)
 		if ( tokens[1] == ":" || tokens[1] == "," ) {
-			tokens.removeToken( 0 ); // rename name
+			tokens.removeToken( 0 ); // remove name
 			tokens.removeToken( 0 ); // remove colon or comma. 0 again because now it's the first token.
 			full = tokens.toString();
 		}
@@ -438,7 +449,7 @@ bool Persona::processMessage( Message *message )
 					freeExp = false;
 					return true;
 				} else if ( type & (WT_CANCEL_QUEST|WT_FILLER) ) {
-					String s(from->getName());
+					String s(from->getNick());
 					s.append(", answer me.");
 					con->addMessage( this, s );
 					// press harder! (don't release expectation)
@@ -524,7 +535,7 @@ bool Persona::processMessage( Message *message )
 				}
 
 				s.append( " " );
-				s.append( from->getName() );
+				s.append( from->getNick() );
 				con->addMessage( this, s );
 				break;
 			}
@@ -549,12 +560,12 @@ bool Persona::processMessage( Message *message )
 				subject++;
 				belongsToSender = true;
 			}
-			else if ( tokens[subject] == "your" || tokens[subject] == this->namePossesive )
+			else if ( tokens[subject] == "your" || tokens[subject] == this->nickPossesive )
 			{
 				subject++;
 				mine = true;
 			}
-			else if ( tokens[subject] == "you" || tokens[subject] == this->name )
+			else if ( tokens[subject] == "you" || tokens[subject] == this->nick )
 			{
 				subject++;
 				me = true;
@@ -639,15 +650,15 @@ bool Persona::processMessage( Message *message )
 							{
 								case 0:
 									s = "My name is ";
-									s.append(this->name);
+									s.append(this->fullName);
 									s.append(".");
 									break;
 								case 1:
-									s = this->name;
+									s = this->fullName;
 									s.append(".");
 									break;
 								case 2:
-									s = this->name;
+									s = this->fullName;
 									s.append("...");
 									break;
 								default:
@@ -787,12 +798,12 @@ bool Persona::processMessage( Message *message )
 		subject++;
 		belongsToSender = true;
 	}
-	else if ( tokens[subject] == "your" || tokens[subject] == this->namePossesive )
+	else if ( tokens[subject] == "your" || tokens[subject] == this->nickPossesive )
 	{
 		subject++;
 		mine = true;
 	}
-	else if ( tokens[subject] == "you" || tokens[subject] == this->name )
+	else if ( tokens[subject] == "you" || tokens[subject] == this->nick )
 	{
 		subject++;
 		me = true;
@@ -834,12 +845,12 @@ bool Persona::processMessage( Message *message )
 
 		subjectB = firstSplit+1;
 
-		if ( tokens[subjectB] == "your" || tokens[subjectB] == this->namePossesive )
+		if ( tokens[subjectB] == "your" || tokens[subjectB] == this->nickPossesive )
 		{
 			subjectB++;
 			mineB = true;
 		}
-		else if ( tokens[subjectB] == "you" || tokens[subjectB] == this->name )
+		else if ( tokens[subjectB] == "you" || tokens[subjectB] == this->nick )
 		{
 			subjectB++;
 			meB = true;
@@ -941,7 +952,7 @@ bool Persona::processMessage( Message *message )
 	}
 
 	if ( isAddressedToMe ) {
-		String s( from->getName() );
+		String s( from->getNick() );
 		s.append( ", I don't know how to parse that statement." );
 		con->addMessage( this, s );
 	}

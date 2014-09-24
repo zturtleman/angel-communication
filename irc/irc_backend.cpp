@@ -63,7 +63,7 @@ int IrcClient::sendall( int fd, const char *s, int len, int flags ) {
 }
 
 IrcClient::IrcClient()
-: nick( NULL ), channel( NULL ), sock( 0 ), connected( false ), msgnum( 0 ), sentUSER ( false ), packetTime ( 0 )
+: nick( NULL ), channel( NULL ), sock( 0 ), connected( false ), msgnum( 0 ), packetTime ( 0 )
 {
 	data[0] = 0;
 }
@@ -81,9 +81,10 @@ IrcClient::~IrcClient()
 	}
 }
 
-bool IrcClient::Connect( const char *server, const char *port, const char *nick, const char *channel ) {
+bool IrcClient::Connect( const char *server, const char *port, const char *nick, const char *ident, const char *realName, const char *channel ) {
 	int ret;
 	struct addrinfo hints, *res;
+	char buf[513]; // for USER message
 
 	if ( connected ) {
 		Disconnect( "connecting elsewhere" );
@@ -96,13 +97,21 @@ bool IrcClient::Connect( const char *server, const char *port, const char *nick,
 	hints.ai_protocol = IPPROTO_TCP;
 
 	if ( ( ret = getaddrinfo( server, port, &hints, &res ) ) != 0 ) {
-		printf( "Connected to %s:%s failed: getaddrinfo returned %d: %s\n", server, port, ret, gai_strerror( ret ) );
+		printf( "Connecting to %s:%s failed: getaddrinfo() returned %d", server, port, ret );
+#ifndef _WIN32
+		printf( ": %s", gai_strerror( ret ) );
+#endif
+		printf( "\n" );
 		return false;
 	}
 
 	sock = socket( res->ai_family, res->ai_socktype, res->ai_protocol );
 	if ( ( ret = connect( sock, res->ai_addr, res->ai_addrlen ) ) != 0 ) {
-		printf( "Connected to %s:%s failed: connect returned %d: %s\n", server, port, ret, gai_strerror( ret ) );
+		printf( "Connecting to %s:%s failed: connect() returned %d", server, port, ret );
+#ifndef _WIN32
+		printf( ": %s", gai_strerror( ret ) );
+#endif
+		printf( "\n" );
 		return false;
 	}
 
@@ -118,6 +127,15 @@ bool IrcClient::Connect( const char *server, const char *port, const char *nick,
 		fcntl( sock, F_SETFL, flags | O_NONBLOCK );
 #endif
 	}
+
+	if ( !realName ) {
+		realName = nick;
+	}
+	if ( !ident ) {
+		ident = nick;
+	}
+	sprintf( buf, "USER %s 0 * :%s\r\n", ident, realName );
+	sendall( sock, buf, strlen( buf ), 0 );
 
 	RequestNick( nick );
 
@@ -400,7 +418,6 @@ void IrcClient::Disconnect( const char *reason ) {
 	printf( "Disconnected (%s)\n", reason );
 
 	connected = false;
-	sentUSER = false;
 	packetTime = 0;
 }
 
@@ -409,12 +426,6 @@ void IrcClient::RequestNick( const char *nick ) {
 
 	if ( this->nick && !strcmp( this->nick, nick ) )
 		return;
-
-	if ( !sentUSER ) {
-		sprintf( buf, "USER %s 0 * :%s\r\n", nick, nick );
-		sendall( sock, buf, strlen( buf ), 0 );
-		sentUSER = true;
-	}
 
 	sprintf( buf, "NICK %s\r\n", nick );
 	sendall( sock, buf, strlen( buf ), 0 );

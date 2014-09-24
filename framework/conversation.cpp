@@ -141,7 +141,7 @@ void Conversation::addMessage( Persona *speaker, const String & message )
 
 		if ( !greetingAddressee.isEmpty() ) {
 			for ( int i = 0; i < this->personas.size(); i++ ) {
-				if ( !this->personas[i]->getName().icompareTo( greetingAddressee ) ) {
+				if ( !this->personas[i]->getNick().icompareTo( greetingAddressee ) ) {
 					addressee = greetingAddressee;
 					break;
 				}

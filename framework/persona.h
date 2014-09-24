@@ -56,8 +56,9 @@ class Persona
 {
 	private:
 		bool   autoChat;
-		String name;
-		String namePossesive;
+		String nick;
+		String nickPossesive;
+		String fullName;
 		Gender gender;
 		bool funReplies;
 
@@ -73,13 +74,15 @@ class Persona
 		void think();
 		bool processMessage( Message *message );
 
-		void tryName( const String &name ); // try to rename
-		void updateName( const String &name ); // actually rename
+		void tryNick( const String &name ); // try to rename
+		void updateNick( const String &name ); // actually rename
 
+		void setFullName( const String &fullName );
 		void setGender( Gender gender );
 		void setAutoChat( bool autoChat );
 
-		const String &getName( void ) const;
+		const String &getNick( void ) const;
+		const String &getFullName( void ) const;
 
 		// Conversation communication
 		void receiveMessage( Conversation *con, Persona *speaker, const String &text, int messageNum, const String &addressee );

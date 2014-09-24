@@ -42,29 +42,29 @@ Persona user, bot, bot2;
 
 void ANGELC_PrintMessage( const AngelCommunication::Conversation *con, const AngelCommunication::Persona *speaker, const char *message ) {
 	if ( !strncmp( message, "/me", 3 ) && ( message[3] == ' ' || message[3] == '\0' ) ) {
-		printf("* %s%s\n", speaker->getName().c_str(), &message[3] );
+		printf("* %s%s\n", speaker->getNick().c_str(), &message[3] );
 	} else {
-		printf("%s> %s\n", speaker->getName().c_str(), message );
+		printf("%s> %s\n", speaker->getNick().c_str(), message );
 	}
 }
 
 // this is called when persona wants to change name
-void ANGELC_PersonaRename( const char *oldname, const char *newname ) {
-	if ( user.getName() == newname
-		|| bot.getName() == newname
-		|| bot2.getName() == newname ) {
-		printf("Name \"%s\" is already in use.\n", newname );
+void ANGELC_PersonaRename( const char *oldnick, const char *newnick ) {
+	if ( user.getNick() == newnick
+		|| bot.getNick() == newnick
+		|| bot2.getNick() == newnick ) {
+		printf("Nick \"%s\" is already in use.\n", newnick );
 		return;
 	}
 
-	if ( user.getName() == oldname )
-		user.updateName( newname );
-	else if ( bot.getName() == oldname )
-		bot.updateName( newname );
-	else if ( bot2.getName() == oldname )
-		bot2.updateName( newname );
+	if ( user.getNick() == oldnick )
+		user.updateNick( newnick );
+	else if ( bot.getNick() == oldnick )
+		bot.updateNick( newnick );
+	else if ( bot2.getNick() == oldnick )
+		bot2.updateNick( newnick );
 
-	printf("* %s is now known as %s\n", oldname, newname );
+	printf("* %s is now known as %s\n", oldnick, newnick );
 }
 
 bool charAvailable( float waitInSeconds ) {
@@ -139,17 +139,19 @@ int main( int argc, char **argv )
 
 	Conversation room;
 
-	bot.updateName( "Angel" );
+	bot.updateNick( "Angel" );
+	bot.setFullName( "Angelica Anarchy" );
 	bot.setGender( GENDER_FEMALE );
 	room.addPersona( &bot );
 
 	if ( argc >= 2 && !strcmp( argv[1], "--two" ) ) {
-		bot2.updateName( "Sera" );
+		bot2.updateNick( "Sera" );
+		bot2.setFullName( "Seraph Anarchy" );
 		bot2.setGender( GENDER_FEMALE );
 		room.addPersona( &bot2 );
 	}
 
-	user.updateName( "User" );
+	user.updateNick( "User" );
 	user.setGender( GENDER_MALE );
 	user.setAutoChat( false );
 	room.addPersona( &user );
@@ -194,7 +196,7 @@ int main( int argc, char **argv )
 				fflush(stdout);
 
 				if ( !strncmp( text.c_str(), "/nick ", 6 ) ) {
-					user.tryName( &text[6] );
+					user.tryNick( &text[6] );
 				} else {
 					room.addMessage( &user, text.c_str() );
 				}
