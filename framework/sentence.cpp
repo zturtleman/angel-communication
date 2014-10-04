@@ -43,20 +43,47 @@ const char *interrogativeWords[] = {
 };
 
 // http://en.wikipedia.org/wiki/English_modal_verbs
+// these are also considered to be auxiliary verbs
 const char *modalVerbs[] = {
 	"can", "could", "may", "might", "must", "shall", "should", "will", "would", NULL
 };
 
+// http://en.wikipedia.org/wiki/Auxiliary_verb
+// NOTE: modal verbs and auxiliary verbs are treated the same by this program
+// NOTE: "have" and "do" are in the commandWords list instead of here
+const char *auxiliaryVerbs[] = {
+	"am", "are", "be", "been", "being", "did", "does", "had", "has", "is", "was", "were", NULL
+};
+
 // http://en.wikipedia.org/wiki/Copula_(linguistics)
+// NOTE: modal verbs and linking verbs are treated the same by this program
 const char *linkingVerbs[] = {
-	"is", "are", "was", "am", "were",
-	"be", // FIXME: confirm this is a consistered a linking verb
+	"to", // NOTE: I don't think this is considered a linking verb
+	NULL
+};
+
+// Words that are a command.
+// hmm, are these all 'main verbs'? main verb means can be a predicate by itself.
+const char *commandWords[] = {
+	// http://ogden.basic-english.org/verbs.html
+	"be", "come", "give", "make",
+	"have", "go", "get", "send",
+	"do", "put", "keep", "see",
+	"seem", "take", "let", "say",
+	// There are said to sometimes be used as operators.
+	// ZTM: "because" probably needs to be a conjunction word in some cases
+	"cause", "because",
+
+	// ZTM: not part of list for Basic English verbs / operators. might not be correct handling.
+	"set", "enable", "disable", "stop", "start", "restart",
+
 	NULL
 };
 
 // like isn't always a verb
 const char *miscVerbs[] = {
-	"like", NULL
+	//"like",
+	NULL
 };
 
 #if 0
@@ -67,7 +94,11 @@ const char *prepositionWords[] = {
 #endif
 
 const char *punctuationMarks[] = {
-	".", "!", "?", ",", ";", "\"", "\'", NULL
+	".", "!", "?", ",", ";", NULL
+};
+
+const char *quoteMarks[] = {
+	"\"", "\'", "`", NULL
 };
 
 bool inWordList( const String &original, const char **wordList ) {
@@ -99,10 +130,13 @@ void Sentence::parse( const char *text ) {
 	enum TokenType {
 		TT_NONE,
 		TT_QUESTWORD,
-		TT_LINKVERB,
+		TT_AUXVERB,
 		TT_MODALVERB,
+		TT_LINKVERB,
 		TT_MISCVERB,
+		TT_COMMANDWORD,
 		TT_PUNCTUATION,
+		TT_QUOTE,
 		TT_OTHER
 	};
 	TokenType tokenTypes[1024] = {TT_NONE}; // FIXME: use dynamic length
@@ -112,17 +146,26 @@ void Sentence::parse( const char *text ) {
 		if ( inWordList( tokens[i], interrogativeWords ) ) {
 			tokenTypes[i] = TT_QUESTWORD;
 		}
-		else if ( inWordList( tokens[i], linkingVerbs ) ) {
-			tokenTypes[i] = TT_LINKVERB;
+		else if ( inWordList( tokens[i], auxiliaryVerbs ) ) {
+			tokenTypes[i] = TT_AUXVERB;
 		}
 		else if ( inWordList( tokens[i], modalVerbs ) ) {
 			tokenTypes[i] = TT_MODALVERB;
 		}
+		else if ( inWordList( tokens[i], linkingVerbs ) ) {
+			tokenTypes[i] = TT_LINKVERB;
+		}
 		else if ( inWordList( tokens[i], miscVerbs ) ) {
 			tokenTypes[i] = TT_MISCVERB;
 		}
+		else if ( inWordList( tokens[i], commandWords ) ) {
+			tokenTypes[i] = TT_COMMANDWORD;
+		}
 		else if ( inWordList( tokens[i], punctuationMarks ) ) {
 			tokenTypes[i] = TT_PUNCTUATION;
+		}
+		else if (  inWordList( tokens[i], quoteMarks ) ) {
+			tokenTypes[i] = TT_QUOTE;
 		}
 		else {
 			// adjective, adverbs, noun, etc
@@ -132,20 +175,28 @@ void Sentence::parse( const char *text ) {
 
 	newPart.clear();
 
-	int questTokenNum = -1;
-	int linkTokenNum = -1;
+	int sectencePartFirstToken = 0;
 	bool readSubject = false, readPredicate = false;
 
 	for ( int i = 0; i < tokens.getNumTokens(); ++i ) {
 		// add sentence part after processing all adjacent punctuation tokens
 		if ( i > 0 && tokenTypes[i-1] == TT_PUNCTUATION && tokenTypes[i] != TT_PUNCTUATION ) {
-			if ( newPart.function != SentencePart::SF_UNKNOWN ) {
+			if ( newPart.function == SentencePart::SF_UNKNOWN && ( i - sectencePartFirstToken > 2 ) ) {
+#if 0
+				// raw text.
+				newPart.clear();
+				newPart.subject = tokens.toString( sectencePartFirstToken, i-2 );
+				//newPart.incomplete = true;
+				if ( !newPart.subject.isEmpty() )
+					parts.push_back( newPart );
+#endif
+			}
+			else if ( newPart.function != SentencePart::SF_UNKNOWN ) {
 				parts.push_back( newPart );
 			}
 
 			newPart.clear();
-
-			questTokenNum = linkTokenNum = -1;
+			sectencePartFirstToken = i;
 		}
 
 		if ( tokenTypes[i] == TT_QUESTWORD ) {
@@ -154,7 +205,6 @@ void Sentence::parse( const char *text ) {
 			}
 			newPart.function = SentencePart::SF_QUESTION;
 			newPart.interrogative = tokens[i];
-			questTokenNum = i;
 
 			// begin subject reading
 			readSubject = true;
@@ -162,33 +212,37 @@ void Sentence::parse( const char *text ) {
 		}
 		// modal verb acts like a interrogative if at beginning of sentence
 		// otherwise acts like a linking verb (at least, that's my conclusion)
-		else if ( tokenTypes[i] == TT_MODALVERB || tokenTypes[i] == TT_LINKVERB ) {
+		// command words also have beginning of sentence and linking behavior
+		else if ( tokenTypes[i] == TT_AUXVERB || tokenTypes[i] == TT_MODALVERB || tokenTypes[i] == TT_LINKVERB || tokenTypes[i] == TT_COMMANDWORD ) {
 			// try to form a link
-			TokenType perviousType = ( i > 0 ) ? tokenTypes[i-1] : TT_NONE;
+			TokenType perviousType = ( i > sectencePartFirstToken ) ? tokenTypes[i-1] : TT_NONE;
 
 			// if start of sentence
 			if ( perviousType == TT_NONE ) {
-				if ( !newPart.interrogative.isEmpty() ) {
-					printf("  WARNING: Two interrogative words found in one sentence part\n");
+				if ( tokenTypes[i] == TT_COMMANDWORD ) {
+					newPart.function = SentencePart::SF_COMMAND;
+					newPart.command = tokens[i];
+				} else {
+					newPart.function = SentencePart::SF_QUESTION;
+					newPart.interrogative = tokens[i];
 				}
-				newPart.function = SentencePart::SF_QUESTION;
-				newPart.interrogative = tokens[i];
-				questTokenNum = i;
 
 				// begin subject reading
 				readSubject = true;
 				readPredicate = false;
 			}
-			// right after an interrogative word
-			else if ( perviousType == TT_QUESTWORD ) {
-				//newPart.function = SentencePart::SF_QUESTION;
+			// right after an interrogative word or command word
+			else if ( perviousType == TT_QUESTWORD || perviousType == TT_COMMANDWORD ) {
+				if ( !newPart.subjectVerb.isEmpty() ) {
+					printf("  WARNING: Two subject verbs found in one sentence part\n");
+				}
 
-				newPart.linkingVerb = tokens[i];
-				linkTokenNum = i;
+				newPart.subjectVerb = tokens[i];
 
-				// begin subject reading
-				readSubject = true;
-				readPredicate = false;
+				// begin subject reading or predicate if subject is already set.
+				// TODO: figure out what would cause subject to already be set here, because than 'subjectVerb' behavior might not fit it's description
+				readSubject = newPart.subject.isEmpty();
+				readPredicate = !readSubject;
 			}
 			// after something else
 			else {
@@ -196,34 +250,47 @@ void Sentence::parse( const char *text ) {
 					printf("  WARNING: Two linking verbs found in one sentence part\n");
 				}
 
-				// hmm. why does this force statement? might of already parsed a question word
-				// hmm.. maybe because link is between (presumably) two things?
-				newPart.function = SentencePart::SF_STATEMENT;
+				if ( newPart.function == SentencePart::SF_UNKNOWN ) {
+					if ( tokenTypes[i] == TT_COMMANDWORD ) {
+						newPart.function = SentencePart::SF_COMMAND;
+					} else {
+						newPart.function = SentencePart::SF_STATEMENT;
+					}
+				}
 				newPart.linkingVerb = tokens[i];
-				linkTokenNum = i;
 
-#if 0
-				// FIXME: doesn't work correct :/
-				int startToken = 0;
-				for ( int s = i-1; s >= 0; --s ) {
-					if ( tokenTypes[s] != TT_OTHER ) {
-						startToken = s+1;
+				// search back and find unknown tokens (presumably a noun or adjective) to use as the subject
+				// Ex: Say "Marvel's Ironman" is nice.
+				// Extract: Marvel's Ironman to be the subject. say is in the commandWords array.
+				int startToken = i-1;
+				int endToken = i-1;
+				for ( int s = startToken; s >= sectencePartFirstToken; --s ) {
+					if ( tokenTypes[i] == TT_PUNCTUATION || tokenTypes[s] == TT_QUOTE )
+						continue;
+					if ( tokenTypes[s] == TT_OTHER ) {
+						startToken = s;
+					} else {
 						break;
 					}
 				}
-				newPart.subject = tokens.toString( startToken, i-1 );
-#else
-				// everything between the interrogative and here or beginning of sentence till here.
-				// NOTE: this doesn't always work corrent with multiple sentence parts and should be replaced.
-				newPart.subject = tokens.toString( questTokenNum+1, i-1 );
-#endif
 
-				// begin predicate reading
-				readSubject = false;
-				readPredicate = true;
+				if ( tokenTypes[endToken] == TT_QUOTE ) {
+					endToken--;
+				}
+
+				if ( startToken >= sectencePartFirstToken && tokenTypes[startToken] == TT_OTHER && endToken >= sectencePartFirstToken ) {
+					printf( "  link subject %d to %d...\n", startToken, endToken );
+					newPart.subject = tokens.toString( startToken, endToken );
+				} else {
+					printf( "  NOTICE: link verb without subject before it.\n" );
+				}
+
+				// begin subject reading or predicate if subject is already set.
+				readSubject = newPart.subject.isEmpty();
+				readPredicate = !readSubject;
 			}
 		}
-		else if ( tokenTypes[i] == TT_PUNCTUATION ) {
+		else if ( tokenTypes[i] == TT_PUNCTUATION || tokenTypes[i] == TT_QUOTE ) {
 			readSubject = false;
 			readPredicate = false;
 
@@ -262,9 +329,13 @@ void Sentence::parse( const char *text ) {
 	}
 
 #if 0
-	if ( newPart.function == SentencePart::SF_UNKNOWN ) {
-		newPart.function = SentencePart::SF_STATEMENT;
-		newPart.incomplete = true;
+	if ( newPart.function == SentencePart::SF_UNKNOWN && sectencePartFirstToken < tokens.getNumTokens() ) {
+		// raw text.
+		newPart.clear();
+		newPart.subject = tokens.toString( sectencePartFirstToken, tokens.getNumTokens()-1 );
+		//newPart.incomplete = true;
+		if ( !newPart.subject.isEmpty() )
+			parts.push_back( newPart );
 	}
 #endif
 

@@ -44,11 +44,19 @@ SF_QUESTION:
 	Pizza		is 				good		?
 	^subject	^linkingVerb	^predicate
 
-	What			is 				pizza	?
-	^interrogative	^linkingVerb	^subject
+	What 			is 				pizza	?
+	^interrogative	^subjectVerb	^subject
 
 	What			pizza		is 				good		?
 	^interrogative	^subject	^linkingVerb	^predicate
+
+SF_COMMAND
+
+	Go				get				a pizza		.
+	^command		^subjectVerb	^subject
+
+	Go				to				the pizza store		.
+	^command		^subjectVerb	^subject
 
 */
 class SentencePart {
@@ -61,7 +69,7 @@ class SentencePart {
 		SF_STATEMENT,	// declarative
 		SF_QUESTION,	// interrogative
 		SF_EXCLAMATION,	// exclamative	// Note: Not impletemented! How is it different from statement (besides exclamation mark)?
-		SF_COMMAND,		// imperative	// Not impletemented yet.
+		SF_COMMAND,		// imperative
 		SF_CONDITION, 	// conditional	// Not impletemented yet. Example: if something
 	};
 
@@ -74,8 +82,12 @@ class SentencePart {
 	// "suppose to" only be present for questions, but currently if a question ends with a period it's changed to a statement.
 	String interrogative;
 
-	String linkingVerb; // Word that connects subject and predicate, or for questions, word that connects interrogative and subject
+	// Word causing a command.
+	String command;
+
+	String subjectVerb;	// verb after interrogative/command and before subject
 	String subject;		// Subject of sentence
+	String linkingVerb;	// Word that connects subject and predicate.
 	String predicate;	// Optional. Something about the subject.
 
 	void clear();

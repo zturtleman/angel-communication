@@ -99,17 +99,23 @@ int main( int argc, char **argv )
 			if ( !sentence.parts[part].interrogative.isEmpty() ) {
 				printf( " Interrogative: %s", sentence.parts[part].interrogative.c_str() );
 			}
+			if ( !sentence.parts[part].command.isEmpty() ) {
+				printf( " Command: %s", sentence.parts[part].command.c_str() );
+			}
 
-			if ( !sentence.parts[part].linkingVerb.isEmpty() && sentence.parts[part].predicate.isEmpty() ) {
-				printf( " Linkverb: %s", sentence.parts[part].linkingVerb.c_str() );
+			if ( !sentence.parts[part].subjectVerb.isEmpty() ) {
+				printf( " Verb: %s", sentence.parts[part].subjectVerb.c_str() );
 			}
 
 			if ( !sentence.parts[part].subject.isEmpty() ) {
 				printf( " Subject: %s", sentence.parts[part].subject.c_str() );
 			}
 
-			if ( !sentence.parts[part].linkingVerb.isEmpty() && !sentence.parts[part].predicate.isEmpty() ) {
-				printf( " Linkverb: %s", sentence.parts[part].linkingVerb.c_str() );
+			if ( !sentence.parts[part].linkingVerb.isEmpty() ) {
+				printf( " Verb: %s", sentence.parts[part].linkingVerb.c_str() );
+			}
+
+			if ( !sentence.parts[part].predicate.isEmpty() ) {
 				printf( " Predicate: %s", sentence.parts[part].predicate.c_str() );
 			}
 
