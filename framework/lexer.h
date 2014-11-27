@@ -47,6 +47,7 @@ class Lexer
         void parse(const String &text); // split words
 		void splitSentences( const String &text ); // split sentences
 		void removeToken( unsigned int index );
+		bool isEmpty() const;
         size_t getNumTokens(void) const;
         String getToken(unsigned int index) const;
         String operator[](unsigned int index) const;

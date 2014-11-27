@@ -126,43 +126,6 @@ float Persona::getSleepTime() {
 	return this->nextUpdateTime - currentTime;
 }
 
-#define STF_YOUCOMPLETEME	1
-#define STF_STATEMENT		2
-//#define STF_IS_ARE			4 // split at 'is' or 'are', ignore '?' before that token
-struct sentenceType_s {
-	const char	*text;
-	int			subjectStartToken;
-	int			flags;
-	//int			possiveNoun; // & 1 = singular, & 2 = plural
-} sentenceTypes[] = {
-	{ "Can ",		1, 0 }, // Can you X, Can your X Y? Can you jump? Can your cat jump?
-	{ "Are",		1, 0 }, // ...
-	{ "Could ",		1, 0 }, // ...
-	{ "How could ",	2, 0 }, // ...
-	{ "How did ",	2, 0 }, // ...
-	{ "Would ",		1, 0 }, // ...
-	{ "How are",	2, STF_YOUCOMPLETEME }, // How are you?
-	{ "How is",		2, 0 }, // How is X, How is X Y, How is your X, How is your X Y, How is you? (not sure the last one makes sense. ever.)
-	{ "What is ",	2, 0 }, // What is your name?
-	{ "What's",		1, 0 }, // ...
-	{ "What are ",	2, 0 }, // What are your favorite colors?
-	{ "What goes",	2, 0 }, // What goes BOOM?
-	{ "What does",	2, 0 }, // What does a cat say?
-	//{ "What",		1, STF_IS_ARE }, // What X is Y? What X are Y? What? X is Y?
-
-	// exclimation
-	{ "What the ",	2, 0 }, // What the $word [is/are $word]
-
-	// non-questions
-	{ "I want to ",	3, STF_YOUCOMPLETEME | STF_STATEMENT },
-	{ "I want ",	2, STF_YOUCOMPLETEME | STF_STATEMENT },
-	{ "I like ",	2, STF_YOUCOMPLETEME | STF_STATEMENT },
-	{ "I love ",	2, STF_YOUCOMPLETEME | STF_STATEMENT },
-	{ "I really like ",	3, STF_YOUCOMPLETEME | STF_STATEMENT },
-	{ "I really love ",	3, STF_YOUCOMPLETEME | STF_STATEMENT },
-	{ NULL, 0 }
-};
-
 #define GTF_SPECIAL 1 // one does not just say Merry Christmas whenever.
 #define GTF_BYE		2
 #define GTF_NIGHT	4
@@ -286,7 +249,7 @@ bool Persona::processMessage( Message *message )
 	int messageNum = message->messageNum;
 	String addressee = message->addressee;
 	bool isAddressedToAnyone = !addressee.icompareTo( "*anybody" );
-	bool isAddressedToMe = !this->nick.icompareTo( addressee );
+	bool isAddressedToMe = !this->nick.icompareTo( addressee ) || ( isAddressedToAnyone && con->numPersonas() == 2 );
 	bool isAddressee = ( isAddressedToAnyone || isAddressedToMe );
 	Lexer tokens( full );
 
@@ -407,6 +370,7 @@ bool Persona::processMessage( Message *message )
 					// free exp and message
 				} else {
 					String mergedText = this->expectations[i]->expstr;
+					mergedText.append( " " );
 					mergedText.append( full );
 					full = mergedText;
 
@@ -545,363 +509,332 @@ bool Persona::processMessage( Message *message )
 	}
 
 
-	for (int i = 0; sentenceTypes[i].text != NULL; ++i )
+	Sentence sentence( full.c_str() );
+	for ( int i = 0; i < sentence.parts.size(); ++i )
 	{
-		if ( full.icompareTo( sentenceTypes[i].text, strlen(sentenceTypes[i].text) ) == 0 )
-		{
-			int subject, last;
-			bool mine = false, me = false, belongsToSender = false, questionMark;
-			bool isAre = ( strstr( sentenceTypes[i].text, "are" ) != NULL );
+		// rename these!
+		bool mine = false, me = false, sender = false, belongsToSender = false;
+		bool mineB = false, meB = false; // for predicate
 
-			subject = sentenceTypes[i].subjectStartToken;
+		SentencePart::SentenceFunction function = sentence.parts[i].function;
+		Lexer subject( sentence.parts[i].subject );
+		Lexer linkingVerb( sentence.parts[i].linkingVerb );
+		Lexer predicate( sentence.parts[i].predicate );
 
-			if ( tokens[subject] == "my" )
-			{
-				subject++;
-				belongsToSender = true;
-			}
-			else if ( tokens[subject] == "your" || tokens[subject] == this->nickPossesive )
-			{
-				subject++;
-				mine = true;
-			}
-			else if ( tokens[subject] == "you" || tokens[subject] == this->nick )
-			{
-				subject++;
-				me = true;
-			}
-
-			last = tokens.getNumTokens()-1;
-			questionMark = ( tokens[last] == "?" );
-			if ( tokens[last] == "?" || tokens[last] == "!" || tokens[last] == "." )
-			{
-				last--;
-			}
-
-			// check if it's all non-sense filler words
-			int w;
-			for ( w = subject; w <= last; w++ ) {
-				if ( !( WordType( tokens[w] ) & WT_FILLER ) ) {
-					break;
-				}
-			}
-
-			// Ex: I like you
-			if ( !isAre && me && (sentenceTypes[i].flags & STF_YOUCOMPLETEME)) {
-				// nothing after 'you'?
-				if ( subject > last ) {
-					String s( "I ");
-					s.append( tokens.toString( 1, sentenceTypes[i].subjectStartToken-1 ) );
-					s.append( " you too" );
-					s.append( questionMark ? "?" : "." );
-					if ( rand() % 3 == 0 ) {
-						s.append( " >_<" );
-					}
-					con->addMessage( this, s );
-					return true;
-				} else {
-					// Ex: I like you face. reply as if user said "your" instead of "you"
-					me = false;
-					mine = true;
-				}
-			}
-
-			// Ex: I like your
-			if (!isAre && mine && (sentenceTypes[i].flags & STF_YOUCOMPLETEME)) {
-				// nothing after 'your'?
-				if ( subject > last ) {
-					String s( "You ");
-					s.append( tokens.toString( 1, sentenceTypes[i].subjectStartToken-1 ) );
-					s.append( " my what?" );
-					con->addMessage( this, s );
-					// create expectation (save message text)
-					addExpectation( con, from, WR_COMPLETE_LAST, full );
-				} else {
-					//if ( !complimentItem( tokens.toString( subject, last ) )) {
-						String s( "I might ");
-						s.append( tokens.toString( 1, sentenceTypes[i].subjectStartToken-1 ) );
-						s.append( " my " );
-						s.append( tokens.toString( w, last ) );
-						s.append( " if I knew what it was." );
-					//}
-					con->addMessage( this, s );
-				}
-				return true;
-			}
-
-			if ( w > last && !(sentenceTypes[i].flags & STF_YOUCOMPLETEME) ) {
-				con->addMessage( this, "What are you talking about?" );
-				// create expectation (save message text)
-				addExpectation( con, from, WR_COMPLETE_LAST, full );
-				return true;
-			}
-
-			// TODO: figure out how many tokens are the noun. >.>
-			//verb = subject + 1;
-
-			if ( this->funReplies && ( !(sentenceTypes[i].flags & STF_STATEMENT) || questionMark ) ) {
-				if ( me || mine ) {
-					if ( !isAre ) {
-						if ( tokens[w].icompareTo( "name" ) == 0 )
-						{
-							static int toldTimes = 0;
-							String s;
-							switch ( toldTimes )
-							{
-								case 0:
-									s = "My name is ";
-									s.append(this->fullName);
-									s.append(".");
-									break;
-								case 1:
-									s = this->fullName;
-									s.append(".");
-									break;
-								case 2:
-									s = this->fullName;
-									s.append("...");
-									break;
-								default:
-									//TODO: set mood annoyed?
-									s = "...";
-									break;
-							}
-							con->addMessage( this, s );
-							toldTimes++;
-						}
-						else if ( tokens[w].icompareTo( "favorite" ) == 0 )
-						{
-							// if subject is "?" remove it so reply is parsed instead next time
-							if ( tokens[w+1] == "?" ) {
-								tokens.removeToken( w+1 );
-								last--;
-							}
-
-							if ( w+1 > last ) {
-								con->addMessage( this, "Favorite what?" );
-
-								// create expectation (save message text)
-								addExpectation( con, from, WR_COMPLETE_LAST, tokens.toString() );
-								return true;
-							}
-
-							String s("I don't have a favorite ");
-							s.append( tokens.toString( w+1, last ) ); // if use subject instead of w, repeats all the filler words
-							s.append(".");
-							con->addMessage( this, s );
-						}
-						else
-						{
-							String s("haha ");
-							s.append( tokens.toString( w, last ) ); // if use subject instead of w, repeats all the filler words
-							s.append("?");
-							con->addMessage( this, s );
-						}
-					} else {
-						// Ex: How are you?
-						if (tokens[subject] == "?")
-						{
-							con->addMessage( this, "Good." );
-							// Bots get stuck replying with this
-							//con->addMessage( this, "Good. How are you?" );
-						}
-						else
-						{
-							String s("Hmm, I don't know about ");
-							s.append(tokens[subject]);
-							if (tokens[subject] == "a" || tokens[subject] == "an" )
-							{
-								s.append( " " );
-								s.append(tokens[subject+1]);
-							}
-							s.append(".");
-							con->addMessage( this, s );
-						}
-					}
-				}
-				else
-				{
-					{
-						// if not talking about me, then I don't know.
-						String s("Let's talk about me instead of ");
-						if ( belongsToSender )
-							s.append("your ");
-						s.append( tokens.toString( w, last ) ); // if use subject instead of w, repeats all the filler words
-						s.append(".");
-						con->addMessage( this, s );
-					}
-				}
-				return true;
-			}
-
-			if ( this->funReplies && !me && !mine && !belongsToSender && (sentenceTypes[i].flags & STF_STATEMENT)) {
-				String s( "Let's talk about me instead of ");
-				if ( rand() % 3 == 0 ) {
-					s.append( "boring old " );
-				}
-				s.append( tokens.toString( w, last ) ); // if use subject instead of w, repeats all the filler words
-				s.append( "! :)" );
-				con->addMessage( this, s );
-				return true;
-			}
-
-			// TODO: be able to talk about whatever this is.
-			String s( "I think you're talking about ");
-			if ( mine )
-				s.append("my ");
-			else if ( me )
-				s.append("me "); // not proper american English... not sure what it should be.
-			else if ( belongsToSender )
-				s.append("your ");
-			s.append( tokens.toString( w, last ) ); // if use subject instead of w, repeats all the filler words
-			s.append( "?" );
-			con->addMessage( this, s );
-
-			// create expectation (don't save message text)
-			addExpectation( con, from, WR_AM_I_RIGHT );
-			return true;
-		}
-	}
-
-	int subject, last;
-	bool mine = false, me = false, belongsToSender = false, questionMark, sarcasmHint = false;
-	bool castleTheIsAre = false;
-
-	subject = 0;
-
-	if ( tokens[subject] == "Anyone" && tokens[subject+1] == "know" ) {
-		subject += 2;
-		// Ex: Anyone know where my shoe is?
-		castleTheIsAre = true;
-	}
-
-	if ( tokens[subject] == "What" ) {
-		subject++;
-
-		// MAGIC HACK for What? ...
-		// FIXME: lines are split at "?" now.
-		/*if ( tokens[subject] == "?" )
-		{
-			subject++;
-			sarcasmHint = true;
-		}*/
-	}
-
-	int tokenIs = -1;
-	if ( tokens[subject] == "What's" ) {
-		tokenIs = subject;
-		subject++;
-	}
-
-	if ( tokens[subject] == "my" )
-	{
-		subject++;
-		belongsToSender = true;
-	}
-	else if ( tokens[subject] == "your" || tokens[subject] == this->nickPossesive )
-	{
-		subject++;
-		mine = true;
-	}
-	else if ( tokens[subject] == "you" || tokens[subject] == this->nick )
-	{
-		subject++;
-		me = true;
-	}
-
-	last = tokens.getNumTokens()-1;
-	questionMark = ( tokens[last] == "?" );
-	if ( tokens[last] == "?" || tokens[last] == "!" || tokens[last] == "." )
-	{
-		last--;
-	}
-
-	// check if it's all non-sense filler words
-	int w;
-	for ( w = subject; w <= last; w++ ) {
-		if ( !( WordType( tokens[w] ) & WT_FILLER ) ) {
-			break;
-		}
-	}
-
-	tokenIs = tokenIs != -1 ? tokenIs : tokens.findExact( "is" );
-	int tokenAre = tokens.findExact( "are" );
-	// Ex: What game is fun? / What games are fun? / What? Games are fun?
-	if ( tokenIs >= 0 || tokenAre >= 0 ) {
-		int firstSplit;
-		int subjectB;
-		bool mineB = false, meB = false;
-
-		firstSplit = tokenIs;
-		if ( tokenIs < 0 || ( tokenAre >= 0 && tokenAre < tokenIs ) ) {
-			firstSplit = tokenAre;
+		// FIXME check more than the first token? this seems like it should be improved in general.
+		if ( subject.getToken( 0 ) == "I" ) {
+			sender = true;
+			subject.removeToken( 0 );
+		} else if ( subject.getToken( 0 ) == "my" ) {
+			belongsToSender = true;
+			subject.removeToken( 0 );
+		} else if ( subject.getToken( 0 ) == "your" ) {
+			mine = true;
+			subject.removeToken( 0 );
+		} else if ( subject.getToken( 0 ) == this->nickPossesive ) {
+			mine = true;
+			subject.removeToken( 0 );
+		} else if ( subject.getToken( 0 ) == "you" ) {
+			me = true;
+			subject.removeToken( 0 );
+		} else if ( subject.getToken( 0 ) == this->nick ) {
+			me = true;
+			subject.removeToken( 0 );
 		}
 
-		// PROFORM THE CASTLING MOVEMENT OF THE IS or ARE IF AT END OF SENTENCE
-		if ( castleTheIsAre && firstSplit+1 >= tokens.getNumTokens() ) {
-			firstSplit = subject;
-			last--;
-		}
-
-		subjectB = firstSplit+1;
-
-		if ( tokens[subjectB] == "your" || tokens[subjectB] == this->nickPossesive )
-		{
-			subjectB++;
+		if ( predicate.getToken( 0 ) == "I" ) {
+			sender = true;
+			predicate.removeToken( 0 );
+		} else if ( predicate.getToken( 0 ) == "my" ) {
+			belongsToSender = true;
+			predicate.removeToken( 0 );
+		} else if ( predicate.getToken( 0 ) == "your" ) {
 			mineB = true;
-		}
-		else if ( tokens[subjectB] == "you" || tokens[subjectB] == this->nick )
-		{
-			subjectB++;
+			predicate.removeToken( 0 );
+		} else if ( predicate.getToken( 0 ) == this->nickPossesive ) {
+			mineB = true;
+			predicate.removeToken( 0 );
+		} else if ( predicate.getToken( 0 ) == "you" ) {
 			meB = true;
+			predicate.removeToken( 0 );
+		} else if ( predicate.getToken( 0 ) ==  this->nick ) {
+			meB = true;
+			predicate.removeToken( 0 );
 		}
-
-		String partA = tokens.toString( w, firstSplit-1 ); // if use subject instead of w, repeats all the filler words
 
 		// check if it's all non-sense filler words
-		int w2;
-		for ( w2 = subjectB; w2 <= last; w2++ ) {
-			if ( !( WordType( tokens[w2] ) & WT_FILLER ) ) {
+		int subjectSkipFiller;
+		for ( subjectSkipFiller = 0; subjectSkipFiller < subject.getNumTokens(); subjectSkipFiller++ ) {
+			if ( !( WordType( subject[ subjectSkipFiller ] ) & WT_FILLER ) ) {
 				break;
 			}
 		}
 
-		if ( w2 > last ) {
-			con->addMessage( this, "What are you talking about?" );
+		// Ex: I am popcorn
+		// Ex: I like popcorn
+		// Ex: I really really love popcorn
+		// TODO?: I was popcorn
+		if ( sender && this->funReplies ) {
+			int linkSkipFiller;
+			for ( linkSkipFiller = 0; linkSkipFiller < linkingVerb.getNumTokens(); linkSkipFiller++ ) {
+				if ( !( WordType( linkingVerb[ linkSkipFiller ] ) & WT_FILLER ) ) {
+					break;
+				}
+			}
 
+			if ( linkingVerb[ linkSkipFiller ] == "am" ) {
+				String s;
+
+				if ( predicate.isEmpty() ) {
+					// Ex: I am?
+					if ( function == SentencePart::SF_QUESTION ) {
+						s.append( "I don't know." );
+					} else {
+						// Ex: I am
+						s.append( "That explains everything." );
+					}
+				} else {
+					s.append( "I don't know what " );
+					s.append( predicate.toString() ); // TODO: Skip predicate filler
+					s.append( " means, so maybe you are." );
+				}
+
+				con->addMessage( this, s );
+				return true;
+			} else if ( linkingVerb[ linkSkipFiller ] == "like" || linkingVerb[ linkSkipFiller ] == "love" ) {
+				// Ex: I like you
+				// TODO: Use mineB case if has non-filler words after 'you'
+				//       instead of force all cases where there is a word after you to mineB
+				if ( meB && predicate.isEmpty() ) {
+					String s;
+
+					s.append( "I " );
+					s.append( linkingVerb[ linkSkipFiller ] );
+					s.append( " you too" );
+					if ( function == SentencePart::SF_QUESTION ) {
+						s.append( "?" );
+					} else {
+						s.append( "." );
+					}
+
+					if ( rand() % 3 == 0 ) {
+						s.append( " >_<" );
+					}
+
+					con->addMessage( this, s );
+					return true;
+				} else if ( mineB || meB ) {
+					// Ex: I like your cat
+					// nothing after 'your'?
+					if ( predicate.isEmpty() ) {
+						String s( "You ");
+						s.append( linkingVerb[ linkSkipFiller ] );
+						s.append( " my what?" );
+						con->addMessage( this, s );
+						// create expectation (save message text)
+						addExpectation( con, from, WR_COMPLETE_LAST, full );
+					} else {
+						// Ex: I like your face?
+						if ( function == SentencePart::SF_QUESTION ) {
+							con->addMessage( this, "I don't know." );
+						} else {
+							// Ex: I like your face
+							//if ( !complimentItem( tokens.toString( subject, last ) )) {
+								String s( "I might ");
+								s.append( linkingVerb[ linkSkipFiller ] );
+								s.append( " my " );
+								s.append( predicate.toString() ); // TODO: Skip predicate filler
+								s.append( " if I knew what it was." );
+								con->addMessage( this, s );
+							//}
+						}
+					}
+					return true;
+				} else {
+					String s;
+
+					// TODO: try to figure out subject from previous messages (by sender / this persona)
+					if ( predicate.isEmpty() ) {
+						con->addMessage( this, "What are you talking about?" );
+						// create expectation (save message text)
+						addExpectation( con, from, WR_COMPLETE_LAST, full );
+						return true;
+					}
+
+					if ( function == SentencePart::SF_QUESTION ) {
+						s.append( "I don't know." );
+					} else {
+						s.append( "/me gives " );
+						s.append( from->nick );
+						s.append( " " );
+						s.append( predicate.toString() ); // TODO: Skip predicate filler
+						s.append( " that " );
+						s.append( from->gender == GENDER_MALE ? "he" : "she" );
+						s.append( " " );
+						s.append( linkingVerb[ linkSkipFiller ] ); // like
+						s.append( "s" ); // append s to like (likes)
+					}
+
+					con->addMessage( this, s );
+					return true;
+				}
+			}
+		}
+
+		// TODO: try to figure out subject from previous messages (by sender / this persona)
+		if ( subject.isEmpty() && !sender ) { // when sender is true, we removed 'I' from subject which may of caused it to be empty...
+			con->addMessage( this, "What are you talking about?" );
 			// create expectation (save message text)
 			addExpectation( con, from, WR_COMPLETE_LAST, full );
 			return true;
 		}
 
-		String partB = tokens.toString( subjectB, last ); // if use w2 instead of subject2, removes the filler words
+#if 0 // TODO: Redo this for the new sentence parsing code
+		if ( this->funReplies && function == SenctencePart::SF_QUESTION ) {
+			if ( me || mine ) {
+				if ( !isAre ) {
+					if ( tokens[w].icompareTo( "name" ) == 0 )
+					{
+						static int toldTimes = 0;
+						String s;
+						switch ( toldTimes )
+						{
+							case 0:
+								s = "My name is ";
+								s.append(this->fullName);
+								s.append(".");
+								break;
+							case 1:
+								s = this->fullName;
+								s.append(".");
+								break;
+							case 2:
+								s = this->nick;
+								s.append("...");
+								break;
+							default:
+								//TODO: set mood annoyed?
+								s = "...";
+								break;
+						}
+						con->addMessage( this, s );
+						toldTimes++;
+					}
+					else if ( tokens[w].icompareTo( "favorite" ) == 0 )
+					{
+						// if subject is "?" remove it so reply is parsed instead next time
+						if ( tokens[w+1] == "?" ) {
+							tokens.removeToken( w+1 );
+							last--;
+						}
 
-		// TODO: be able to talk about whatever this is.
+						if ( w+1 > last ) {
+							con->addMessage( this, "Favorite what?" );
+
+							// create expectation (save message text)
+							addExpectation( con, from, WR_COMPLETE_LAST, tokens.toString() );
+							return true;
+						}
+
+						String s("I don't have a favorite ");
+						s.append( tokens.toString( w+1, last ) ); // if use subject instead of w, repeats all the filler words
+						s.append(".");
+						con->addMessage( this, s );
+					}
+					else
+					{
+						String s("haha ");
+						s.append( tokens.toString( w, last ) ); // if use subject instead of w, repeats all the filler words
+						s.append("?");
+						con->addMessage( this, s );
+					}
+				} else {
+					// Ex: How are you?
+					if (tokens[subject] == "?")
+					{
+						con->addMessage( this, "Good." );
+						// Bots get stuck replying with this
+						//con->addMessage( this, "Good. How are you?" );
+					}
+					else
+					{
+						String s("Hmm, I don't know about ");
+						s.append(tokens[subject]);
+						if (tokens[subject] == "a" || tokens[subject] == "an" )
+						{
+							s.append( " " );
+							s.append(tokens[subject+1]);
+						}
+						s.append(".");
+						con->addMessage( this, s );
+					}
+				}
+			}
+			else
+			{
+				{
+					// if not talking about me, then I don't know.
+					String s("Let's talk about me instead of ");
+					if ( belongsToSender )
+						s.append("your ");
+					s.append( tokens.toString( w, last ) ); // if use subject instead of w, repeats all the filler words
+					s.append(".");
+					con->addMessage( this, s );
+				}
+			}
+			return true;
+		}
+#endif
+
+		// Ex: I was the turkey all along!
+		if ( this->funReplies && !( me || mine || meB || mineB ) && !belongsToSender && function == SentencePart::SF_STATEMENT ) {
+			String s( "Let's talk about me instead of ");
+			if ( rand() % 3 == 0 ) {
+				s.append( "boring old " );
+			}
+
+			if ( sender ) {
+				s.append( "you" );
+
+				if ( !predicate.isEmpty() ) {
+					s.append( " being " );
+					s.append( predicate.toString() ); // TODO skip filler words
+				}
+			} else if ( !predicate.isEmpty() ) {
+				s.append( predicate.toString() ); // TODO skip filler words
+			} else if ( !subject.isEmpty() ) {
+				s.append( subject.toString( subjectSkipFiller ) ); // skip filler words
+			}
+
+			s.append( "! :)" );
+			con->addMessage( this, s );
+			return true;
+		}
+
+
 		String s( "I think you're talking about ");
+		if ( mine || mineB || me || meB ) {
+			if ( sentence.parts[i].interrogative.isEmpty() ) // Ex: You are smart. Say: Me
+				s.append( "me being " );
+			else
+				s.append( "my " );
+		} else if ( belongsToSender ) {
+			s.append( "your " );
+		} else if ( !predicate.isEmpty() && sentence.parts[i].linkingVerb == "is" && subjectSkipFiller == 0 ) { // if 'is' and no filler words.
+			s.append( ( predicate.toString() == "it" ) ? "the " : "a " );
+		}
 
 		// oh shit Ex: What time is it?
-		if ( partB == "it" ) {
-			if ( mine || mineB || me || meB ) {
-				if ( firstSplit == subject ) // Ex: You are smart. Say: Me
-					s.append( "me being " );
-				else
-					s.append( "my " );
-			} else if ( belongsToSender ) {
-				s.append( "your " );
-			} else if ( firstSplit == tokenIs && w2 == subjectB ) { // if 'is' and no filler words
-				s.append( "the " );
-			}
+		if ( predicate.toString() == "it" ) {
 			// Ex: You are it?
-			if ( firstSplit == subject ) {
-
-			} else {
-				s.append( partA );
+			if ( !subject.isEmpty() ) {
+				s.append( subject.toString() );
 				s.append( " " );
 			}
 
-			// replace 'it' (aka partB) with...
+			// replace 'it' with...
 			if ( mine || mineB || me || meB ) {
-				if ( firstSplit != subject ) // if haven't already said 'being'
+				if ( !sentence.parts[i].interrogative.isEmpty() ) // if haven't already said 'being'
 					s.append( "being " );
 			} else {
 				s.append( "of " );
@@ -909,29 +842,19 @@ bool Persona::processMessage( Message *message )
 			s.append( "something" );
 
 			s.append( "?" );
-			if ( sarcasmHint )
-				s.append( " With maybe a hint of sarcasm?" );
 		} else {
-			if ( mine || mineB || me || meB ) {
-				if ( firstSplit == subject ) // Ex: You are smart. Say: Me
-					s.append( "me being " );
-				else
-					s.append( "my " );
-			} else if ( belongsToSender ) {
-				s.append( "your " );
-			} else if ( firstSplit == tokenIs && w2 == subjectB ) { // if 'is' and no filler words
-				s.append( "a " );
+			if ( !predicate.isEmpty() ) {
+				s.append( predicate.toString() );
 			}
-			s.append( partB );
-			// Ex: You are smart. Don't say: my smart _are_.
-			if ( firstSplit != subject ) {
+			if ( !predicate.isEmpty() && !subject.isEmpty() ) {
 				s.append( " " );
-				s.append( partA );
+			}
+			if ( !subject.isEmpty() ) {
+				s.append( subject.toString() );
 			}
 			s.append( "?" );
-			if ( sarcasmHint )
-				s.append( " With maybe a hint of sarcasm?" );
 		}
+
 		con->addMessage( this, s );
 
 		// create expectation (don't save message text)
@@ -939,7 +862,7 @@ bool Persona::processMessage( Message *message )
 		return true;
 	}
 
-	if ( con->numPersonas() == 2 && !didStatementGame && this->funReplies ) {
+	if ( isAddressedToMe && !didStatementGame && this->funReplies ) {
 		for ( int i = 0; i < ARRAY_LEN( statements ); i++ ) {
 			// fail to find anything to say, so just mess with them.
 			int st = rand() / (float)RAND_MAX * ARRAY_LEN( statements )-1;
@@ -952,8 +875,14 @@ bool Persona::processMessage( Message *message )
 	}
 
 	if ( isAddressedToMe ) {
-		String s( from->getNick() );
-		s.append( ", I don't know how to parse that statement." );
+		String s;
+
+		if ( !isAddressedToAnyone ) {
+			s.append( from->getNick() );
+			s.append( ", " );
+		}
+
+		s.append( "I don't know how to parse that statement." );
 		con->addMessage( this, s );
 	}
 	return true;

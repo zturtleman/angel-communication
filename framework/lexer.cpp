@@ -268,6 +268,11 @@ size_t Lexer::getNumTokens() const
     return this->tokens.size();
 }
 
+bool Lexer::isEmpty() const
+{
+	return ( this->tokens.size() == 0 );
+}
+
 int Lexer::findExact(const String &needle) const
 {
 	for (int i = 0; i < this->tokens.size(); ++i)

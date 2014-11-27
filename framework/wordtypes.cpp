@@ -25,11 +25,11 @@ namespace AngelCommunication
 {
 
 const char *fillerWords[] = {
-	"a", "an", "the", "so", "be", "eh", "um", "ah", "oh", "hhhhhh", "mm", "mmm"
+	"a", "an", "the", "so", "be", "eh", "um", "ah", "oh", "hhhhhh", "mm", "mmm", "very", "really"
 };
 
 const char *cancelWords[] = {
-	"nothing", "nevermind", "nm", "never mind" /* FIXME can't have spaces in words yet */
+	"nothing", "nevermind", "nm", "nvm", "never mind" /* FIXME can't have spaces in words yet */
 };
 
 const char *falseWords[] = {
@@ -37,7 +37,7 @@ const char *falseWords[] = {
 };
 
 const char *trueWords[] = {
-	"true", "yes", "yeah", "yep", "ye", "aye", "okay", "mm", "mmm"
+	"true", "yes", "yeah", "yea", "yeas", "yah", "yep", "ye", "aye", "okay", "mm", "mmm"
 };
 
 int	WordType( const String & str ) {

@@ -52,7 +52,13 @@ const char *modalVerbs[] = {
 // NOTE: modal verbs and auxiliary verbs are treated the same by this program
 // NOTE: "have" and "do" are in the commandWords list instead of here
 const char *auxiliaryVerbs[] = {
-	"am", "are", "be", "been", "being", "did", "does", "had", "has", "is", "was", "were", NULL
+	"am", "are", "be", "been", "being", "did", "does", "had", "has", "is", "was", "were",
+
+	// like is uber complicated and not always a verb
+	"like",
+	"love",
+
+	NULL
 };
 
 // http://en.wikipedia.org/wiki/Copula_(linguistics)
@@ -80,9 +86,7 @@ const char *commandWords[] = {
 	NULL
 };
 
-// like isn't always a verb
 const char *miscVerbs[] = {
-	//"like",
 	NULL
 };
 
@@ -279,10 +283,10 @@ void Sentence::parse( const char *text ) {
 				}
 
 				if ( startToken >= sectencePartFirstToken && tokenTypes[startToken] == TT_OTHER && endToken >= sectencePartFirstToken ) {
-					printf( "  link subject %d to %d...\n", startToken, endToken );
+					//printf( "  NOTICE: link subject %d to %d...\n", startToken, endToken );
 					newPart.subject = tokens.toString( startToken, endToken );
 				} else {
-					printf( "  NOTICE: link verb without subject before it.\n" );
+					//printf( "  NOTICE: link verb without subject before it.\n" );
 				}
 
 				// begin subject reading or predicate if subject is already set.
@@ -296,7 +300,7 @@ void Sentence::parse( const char *text ) {
 
 			if ( tokens[i] == "?" && newPart.function != SentencePart::SF_QUESTION ) {
 				// it just became a question!
-				printf( "  NOTICE: Forcing %s to question!\n", newPart.getFunctionName() );
+				//printf( "  NOTICE: Forcing %s to question!\n", newPart.getFunctionName() );
 				newPart.function = SentencePart::SF_QUESTION;
 			}
 			// Avoid "May The Force be with you." being a question. Might not be the best method as "May The Force be with you" will be treated as a question.
@@ -304,7 +308,7 @@ void Sentence::parse( const char *text ) {
 			// This could be bad if someone writes "What.", "What is that.", etc. Then again, this whole thing asuming mostly proper english with optional punctuation.
 			else if ( tokens[i] == "." && newPart.function == SentencePart::SF_QUESTION ) {
 				// it just became a question!
-				printf( "  NOTICE: Forcing question to statement!\n" );
+				//printf( "  NOTICE: Forcing question to statement!\n" );
 				newPart.function = SentencePart::SF_STATEMENT;
 			}
 		} else {
