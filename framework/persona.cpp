@@ -520,6 +520,8 @@ bool Persona::processMessage( Message *message )
 		Lexer subject( sentence.parts[i].subject );
 		Lexer linkingVerb( sentence.parts[i].linkingVerb );
 		Lexer predicate( sentence.parts[i].predicate );
+		bool hadSubject = !subject.isEmpty(); // the following token removal messes up checking if missing subject
+		bool hadPredicate = !predicate.isEmpty();
 
 		// FIXME check more than the first token? this seems like it should be improved in general.
 		if ( subject.getToken( 0 ) == "I" ) {
@@ -585,7 +587,7 @@ bool Persona::processMessage( Message *message )
 			if ( linkingVerb[ linkSkipFiller ] == "am" ) {
 				String s;
 
-				if ( predicate.isEmpty() ) {
+				if ( !hadPredicate ) {
 					// Ex: I am?
 					if ( function == SentencePart::SF_QUESTION ) {
 						s.append( "I don't know." );
@@ -605,7 +607,7 @@ bool Persona::processMessage( Message *message )
 				// Ex: I like you
 				// TODO: Use mineB case if has non-filler words after 'you'
 				//       instead of force all cases where there is a word after you to mineB
-				if ( meB && predicate.isEmpty() ) {
+				if ( meB && !hadPredicate ) {
 					String s;
 
 					s.append( "I " );
@@ -626,7 +628,7 @@ bool Persona::processMessage( Message *message )
 				} else if ( mineB || meB ) {
 					// Ex: I like your cat
 					// nothing after 'your'?
-					if ( predicate.isEmpty() ) {
+					if ( !hadPredicate ) {
 						String s( "You ");
 						s.append( linkingVerb[ linkSkipFiller ] );
 						s.append( " my what?" );
@@ -654,7 +656,7 @@ bool Persona::processMessage( Message *message )
 					String s;
 
 					// TODO: try to figure out subject from previous messages (by sender / this persona)
-					if ( predicate.isEmpty() ) {
+					if ( !hadPredicate ) {
 						con->addMessage( this, "What are you talking about?" );
 						// create expectation (save message text)
 						addExpectation( con, from, WR_COMPLETE_LAST, full );
@@ -682,7 +684,7 @@ bool Persona::processMessage( Message *message )
 		}
 
 		// TODO: try to figure out subject from previous messages (by sender / this persona)
-		if ( subject.isEmpty() && !sender ) { // when sender is true, we removed 'I' from subject which may of caused it to be empty...
+		if ( !hadSubject ) {
 			con->addMessage( this, "What are you talking about?" );
 			// create expectation (save message text)
 			addExpectation( con, from, WR_COMPLETE_LAST, full );
@@ -786,38 +788,30 @@ bool Persona::processMessage( Message *message )
 		}
 #endif
 
+		// The catch all case
 		// Ex: I was the turkey all along!
-		if ( this->funReplies && !( me || mine || meB || mineB ) && !belongsToSender && function == SentencePart::SF_STATEMENT ) {
-			String s( "Let's talk about me instead of ");
+		String s;
+		const bool cheekyResponse = ( this->funReplies && !( mine || mineB || me || meB ) );
+
+		if ( cheekyResponse ) {
+			s = "Let's talk about me instead of ";
 			if ( rand() % 3 == 0 ) {
 				s.append( "boring old " );
 			}
-
-			if ( sender ) {
-				s.append( "you" );
-
-				if ( !predicate.isEmpty() ) {
-					s.append( " being " );
-					s.append( predicate.toString() ); // TODO skip filler words
-				}
-			} else if ( !predicate.isEmpty() ) {
-				s.append( predicate.toString() ); // TODO skip filler words
-			} else if ( !subject.isEmpty() ) {
-				s.append( subject.toString( subjectSkipFiller ) ); // skip filler words
-			}
-
-			s.append( "! :)" );
-			con->addMessage( this, s );
-			return true;
+		} else {
+			s = "I think you're talking about ";
 		}
 
-
-		String s( "I think you're talking about ");
 		if ( mine || mineB || me || meB ) {
 			if ( sentence.parts[i].interrogative.isEmpty() ) // Ex: You are smart. Say: Me
 				s.append( "me being " );
 			else
 				s.append( "my " );
+		} else if ( sender ) {
+			s.append( "you " );
+			if ( !predicate.isEmpty() ) {
+				s.append( "being " );
+			}
 		} else if ( belongsToSender ) {
 			s.append( "your " );
 		} else if ( !predicate.isEmpty() && sentence.parts[i].linkingVerb == "is" && subjectSkipFiller == 0 ) { // if 'is' and no filler words.
@@ -828,7 +822,7 @@ bool Persona::processMessage( Message *message )
 		if ( predicate.toString() == "it" ) {
 			// Ex: You are it?
 			if ( !subject.isEmpty() ) {
-				s.append( subject.toString() );
+				s.append( subject.toString( subjectSkipFiller ) ); // skip filler words
 				s.append( " " );
 			}
 
@@ -840,25 +834,28 @@ bool Persona::processMessage( Message *message )
 				s.append( "of " );
 			}
 			s.append( "something" );
-
-			s.append( "?" );
 		} else {
 			if ( !predicate.isEmpty() ) {
-				s.append( predicate.toString() );
+				s.append( predicate.toString() ); // TODO skip filler words
 			}
 			if ( !predicate.isEmpty() && !subject.isEmpty() ) {
 				s.append( " " );
 			}
 			if ( !subject.isEmpty() ) {
-				s.append( subject.toString() );
+				s.append( subject.toString( subjectSkipFiller ) ); // skip filler words
 			}
-			s.append( "?" );
 		}
 
-		con->addMessage( this, s );
+		if ( cheekyResponse ) {
+			s.append( "! :)" );
+			con->addMessage( this, s );
+		} else {
+			s.append( "?" );
+			con->addMessage( this, s );
 
-		// create expectation (don't save message text)
-		addExpectation( con, from, WR_AM_I_RIGHT );
+			// create expectation (don't save message text)
+			addExpectation( con, from, WR_AM_I_RIGHT );
+		}
 		return true;
 	}
 
