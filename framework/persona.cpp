@@ -794,54 +794,53 @@ bool Persona::processMessage( Message *message )
 		const bool cheekyResponse = ( this->funReplies && !( mine || mineB || me || meB ) );
 
 		if ( cheekyResponse ) {
-			s = "Let's talk about me instead of ";
+			s = "Let's talk about me instead of";
 			if ( rand() % 3 == 0 ) {
-				s.append( "boring old " );
+				s.append( " boring old" );
 			}
 		} else {
-			s = "I think you're talking about ";
+			s = "I think you're talking about";
 		}
 
 		if ( mine || mineB || me || meB ) {
 			if ( sentence.parts[i].interrogative.isEmpty() ) // Ex: You are smart. Say: Me
-				s.append( "me being " );
+				s.append( " me being" );
 			else
-				s.append( "my " );
+				s.append( " my" );
 		} else if ( sender ) {
-			s.append( "you " );
+			s.append( " you" );
 			if ( !predicate.isEmpty() ) {
-				s.append( "being " );
+				s.append( " being" );
 			}
 		} else if ( belongsToSender ) {
-			s.append( "your " );
+			s.append( " your" );
 		} else if ( !predicate.isEmpty() && sentence.parts[i].linkingVerb == "is" && subjectSkipFiller == 0 ) { // if 'is' and no filler words.
-			s.append( ( predicate.toString() == "it" ) ? "the " : "a " );
+			s.append( ( predicate.toString() == "it" ) ? " the" : " a" );
 		}
 
 		// oh shit Ex: What time is it?
 		if ( predicate.toString() == "it" ) {
 			// Ex: You are it?
 			if ( !subject.isEmpty() ) {
-				s.append( subject.toString( subjectSkipFiller ) ); // skip filler words
 				s.append( " " );
+				s.append( subject.toString( subjectSkipFiller ) ); // skip filler words
 			}
 
 			// replace 'it' with...
 			if ( mine || mineB || me || meB ) {
 				if ( !sentence.parts[i].interrogative.isEmpty() ) // if haven't already said 'being'
-					s.append( "being " );
+					s.append( " being" );
 			} else {
-				s.append( "of " );
+				s.append( " of" );
 			}
-			s.append( "something" );
+			s.append( " something" );
 		} else {
 			if ( !predicate.isEmpty() ) {
+				s.append( " " );
 				s.append( predicate.toString() ); // TODO skip filler words
 			}
-			if ( !predicate.isEmpty() && !subject.isEmpty() ) {
-				s.append( " " );
-			}
 			if ( !subject.isEmpty() ) {
+				s.append( " " );
 				s.append( subject.toString( subjectSkipFiller ) ); // skip filler words
 			}
 		}
