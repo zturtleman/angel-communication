@@ -803,7 +803,7 @@ bool Persona::processMessage( Message *message )
 		}
 
 		if ( mine || mineB || me || meB ) {
-			if ( sentence.parts[i].interrogative.isEmpty() ) // Ex: You are smart. Say: Me
+			if ( !predicate.isEmpty() ) // Ex: You are smart. Say: Me
 				s.append( " me being" );
 			else
 				s.append( " my" );
@@ -828,7 +828,7 @@ bool Persona::processMessage( Message *message )
 
 			// replace 'it' with...
 			if ( mine || mineB || me || meB ) {
-				if ( !sentence.parts[i].interrogative.isEmpty() ) // if haven't already said 'being'
+				if ( predicate.isEmpty() ) // if haven't already said 'being'
 					s.append( " being" );
 			} else {
 				s.append( " of" );
