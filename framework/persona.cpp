@@ -572,6 +572,14 @@ bool Persona::processMessage( Message *message )
 			}
 		}
 
+		// check if it's all non-sense filler words
+		int predicateSkipFiller;
+		for ( predicateSkipFiller = 0; predicateSkipFiller < predicate.getNumTokens(); predicateSkipFiller++ ) {
+			if ( !( WordType( predicate[ predicateSkipFiller ] ) & WT_FILLER ) ) {
+				break;
+			}
+		}
+
 		// Ex: I am popcorn
 		// Ex: I like popcorn
 		// Ex: I really really love popcorn
@@ -597,7 +605,7 @@ bool Persona::processMessage( Message *message )
 					}
 				} else {
 					s.append( "I don't know what " );
-					s.append( predicate.toString() ); // TODO: Skip predicate filler
+					s.append( predicate.toString( predicateSkipFiller ) ); // skip filler words
 					s.append( " means, so maybe you are." );
 				}
 
@@ -645,7 +653,7 @@ bool Persona::processMessage( Message *message )
 								String s( "I might ");
 								s.append( linkingVerb[ linkSkipFiller ] );
 								s.append( " my " );
-								s.append( predicate.toString() ); // TODO: Skip predicate filler
+								s.append( predicate.toString( predicateSkipFiller ) ); // skip filler words
 								s.append( " if I knew what it was." );
 								con->addMessage( this, s );
 							//}
@@ -669,7 +677,7 @@ bool Persona::processMessage( Message *message )
 						s.append( "/me gives " );
 						s.append( from->nick );
 						s.append( " " );
-						s.append( predicate.toString() ); // TODO: Skip predicate filler
+						s.append( predicate.toString( predicateSkipFiller ) ); // skip filler words
 						s.append( " that " );
 						s.append( from->gender == GENDER_MALE ? "he" : "she" );
 						s.append( " " );
@@ -837,7 +845,7 @@ bool Persona::processMessage( Message *message )
 		} else {
 			if ( !predicate.isEmpty() ) {
 				s.append( " " );
-				s.append( predicate.toString() ); // TODO skip filler words
+				s.append( predicate.toString( predicateSkipFiller ) ); // skip filler words
 			}
 			if ( !subject.isEmpty() ) {
 				s.append( " " );
