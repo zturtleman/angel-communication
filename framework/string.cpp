@@ -191,12 +191,14 @@ void String::setData(const char *newData)
 {
     unsigned int newlen;
 
-    if (newData == NULL)
+	if (newData)
     {
-        return;
+		newlen = strlen(newData);
     }
-
-    newlen = strlen(newData);
+	else
+	{
+		newlen = 0;
+	}
 
     if (newlen == 0)
     {
