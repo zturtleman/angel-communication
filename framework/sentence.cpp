@@ -210,9 +210,21 @@ void Sentence::parse( const char *text ) {
 			newPart.function = SentencePart::SF_QUESTION;
 			newPart.interrogative = tokens[i];
 
-			// begin subject reading
-			readSubject = true;
-			readPredicate = false;
+			// begin subject reading or predicate if subject is already set.
+			// Ex: A cat has how many legs? -- how is after has
+			if ( !newPart.subject.isEmpty() ) {
+				if ( !newPart.predicate.isEmpty() ) {
+					printf("  WARNING: Found interrogative after subject. Swapping subject and predictate.\n");
+				}
+				String tmp = newPart.predicate;
+				newPart.predicate = newPart.subject;
+				newPart.subject = tmp;
+			}
+			if ( !newPart.subject.isEmpty() && !newPart.predicate.isEmpty() ) {
+				printf("  WARNING: Going to append tokens after interrogative to (non empty) predicate\n");
+			}
+			readSubject = newPart.subject.isEmpty();
+			readPredicate = !readSubject;
 		}
 		// modal verb acts like a interrogative if at beginning of sentence
 		// otherwise acts like a linking verb (at least, that's my conclusion)
@@ -252,6 +264,10 @@ void Sentence::parse( const char *text ) {
 			else {
 				if ( !newPart.linkingVerb.isEmpty() ) {
 					printf("  WARNING: Two linking verbs found in one sentence part\n");
+					// This could be a useless word that just breaks stuff.
+					// In "How many legs does a cat have?" 'does' and 'have' are link words.
+					// Don't need the 'have' for responding, unless nitpicking grammer.
+					continue;
 				}
 
 				if ( newPart.function == SentencePart::SF_UNKNOWN ) {
