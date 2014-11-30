@@ -514,7 +514,7 @@ bool Persona::processMessage( Message *message )
 	{
 		// rename these!
 		bool mine = false, me = false, sender = false, belongsToSender = false;
-		bool mineB = false, meB = false; // for predicate
+		bool mineB = false, meB = false, senderB = false, belongsToSenderB = false; // for predicate
 
 		SentencePart::SentenceFunction function = sentence.parts[i].function;
 		Lexer subject( sentence.parts[i].subject );
@@ -524,42 +524,30 @@ bool Persona::processMessage( Message *message )
 		bool hadPredicate = !predicate.isEmpty();
 
 		// FIXME check more than the first token? this seems like it should be improved in general.
-		if ( subject.getToken( 0 ) == "I" ) {
+		if ( subject.getToken( 0 ) == "I" || subject.getToken( 0 ) == from->nick ) {
 			sender = true;
 			subject.removeToken( 0 );
-		} else if ( subject.getToken( 0 ) == "my" ) {
+		} else if ( subject.getToken( 0 ) == "my" || subject.getToken( 0 ) == from->nickPossesive ) {
 			belongsToSender = true;
 			subject.removeToken( 0 );
-		} else if ( subject.getToken( 0 ) == "your" ) {
+		} else if ( subject.getToken( 0 ) == "your" || subject.getToken( 0 ) == this->nickPossesive ) {
 			mine = true;
 			subject.removeToken( 0 );
-		} else if ( subject.getToken( 0 ) == this->nickPossesive ) {
-			mine = true;
-			subject.removeToken( 0 );
-		} else if ( subject.getToken( 0 ) == "you" ) {
-			me = true;
-			subject.removeToken( 0 );
-		} else if ( subject.getToken( 0 ) == this->nick ) {
+		} else if ( subject.getToken( 0 ) == "you" || subject.getToken( 0 ) == this->nick ) {
 			me = true;
 			subject.removeToken( 0 );
 		}
 
-		if ( predicate.getToken( 0 ) == "I" ) {
-			sender = true;
+		if ( predicate.getToken( 0 ) == "I" || predicate.getToken( 0 ) == from->nick ) {
+			senderB = true;
 			predicate.removeToken( 0 );
-		} else if ( predicate.getToken( 0 ) == "my" ) {
-			belongsToSender = true;
+		} else if ( predicate.getToken( 0 ) == "my" || predicate.getToken( 0 ) == from->nickPossesive ) {
+			belongsToSenderB = true;
 			predicate.removeToken( 0 );
-		} else if ( predicate.getToken( 0 ) == "your" ) {
+		} else if ( predicate.getToken( 0 ) == "your" || predicate.getToken( 0 ) == this->nickPossesive ) {
 			mineB = true;
 			predicate.removeToken( 0 );
-		} else if ( predicate.getToken( 0 ) == this->nickPossesive ) {
-			mineB = true;
-			predicate.removeToken( 0 );
-		} else if ( predicate.getToken( 0 ) == "you" ) {
-			meB = true;
-			predicate.removeToken( 0 );
-		} else if ( predicate.getToken( 0 ) ==  this->nick ) {
+		} else if ( predicate.getToken( 0 ) == "you" || predicate.getToken( 0 ) ==  this->nick ) {
 			meB = true;
 			predicate.removeToken( 0 );
 		}
@@ -700,7 +688,7 @@ bool Persona::processMessage( Message *message )
 		}
 
 #if 0 // TODO: Redo this for the new sentence parsing code
-		if ( this->funReplies && function == SenctencePart::SF_QUESTION ) {
+		if ( this->funReplies && function == SentencePart::SF_QUESTION ) {
 			if ( me || mine ) {
 				if ( !isAre ) {
 					if ( tokens[w].icompareTo( "name" ) == 0 )
@@ -807,50 +795,68 @@ bool Persona::processMessage( Message *message )
 				s.append( " boring old" );
 			}
 		} else {
-			s = "I think you're talking about";
+			// Ask user if parsed subject correctly
+			if ( function == SentencePart::SF_QUESTION ) {
+				s = "Are you asking about";
+			} else {
+				s = "Are you talking about";
+			}
 		}
 
-		if ( mine || mineB || me || meB ) {
-			if ( !predicate.isEmpty() ) // Ex: You are smart. Say: Me
-				s.append( " me being" );
-			else
-				s.append( " my" );
+		//
+		// Add subject
+		//
+		if ( mine || ( me && !subject.isEmpty() ) ) {
+			s.append( " my" );
+		} else if ( me ) {
+			s.append( " me" );
+		} else if ( belongsToSender || ( sender && !subject.isEmpty() ) ) {
+			s.append( " your" );
 		} else if ( sender ) {
 			s.append( " you" );
-			if ( !predicate.isEmpty() ) {
-				s.append( " being" );
-			}
-		} else if ( belongsToSender ) {
-			s.append( " your" );
 		} else if ( !predicate.isEmpty() && sentence.parts[i].linkingVerb == "is" && subjectSkipFiller == 0 ) { // if 'is' and no filler words.
 			s.append( ( predicate.toString() == "it" ) ? " the" : " a" );
 		}
 
-		// oh shit Ex: What time is it?
-		if ( predicate.toString() == "it" ) {
-			// Ex: You are it?
-			if ( !subject.isEmpty() ) {
-				s.append( " " );
-				s.append( subject.toString( subjectSkipFiller ) ); // skip filler words
-			}
+		if ( !subject.isEmpty() ) {
+			s.append( " " );
+			s.append( subject.toString( subjectSkipFiller ) ); // skip filler words
+		}
 
+		//
+		// Add predicate
+		//
+		if ( meB ) {
+			s.append( " me" );
+			if ( !predicate.isEmpty() ) {
+				s.append( " being" );
+			}
+		} else if ( mineB ) {
+			s.append( " my" );
+		} else if ( senderB ) {
+			s.append( " you" );
+			if ( !predicate.isEmpty() ) {
+				s.append( " being" );
+			}
+		} else if ( belongsToSenderB ) {
+			s.append( " your" );
+		} else if ( !predicate.isEmpty() && !( me || mine || sender || belongsToSender ) ) {
+			s.append( " being" );
+		}
+
+		// Ex: What time is it?
+		// Ex: You are it?
+		if ( predicate.toString() == "it" ) {
 			// replace 'it' with...
-			if ( mine || mineB || me || meB ) {
-				if ( predicate.isEmpty() ) // if haven't already said 'being'
-					s.append( " being" );
+			if ( me || mine || sender || belongsToSender ) {
+				s.append( " being" );
 			} else {
 				s.append( " of" );
 			}
 			s.append( " something" );
-		} else {
-			if ( !predicate.isEmpty() ) {
-				s.append( " " );
-				s.append( predicate.toString( predicateSkipFiller ) ); // skip filler words
-			}
-			if ( !subject.isEmpty() ) {
-				s.append( " " );
-				s.append( subject.toString( subjectSkipFiller ) ); // skip filler words
-			}
+		} else if ( !predicate.isEmpty() ) {
+			s.append( " " );
+			s.append( predicate.toString( predicateSkipFiller ) ); // skip filler words
 		}
 
 		if ( cheekyResponse ) {
