@@ -367,8 +367,10 @@ void Sentence::parse( const char *text ) {
 void SentencePart::clear() {
 	function = SF_UNKNOWN;
 	interrogative = "";
-	linkingVerb = "";
+	command = "";
+	subjectVerb = "";
 	subject = "";
+	linkingVerb = "";
 	predicate = "";
 }
 
