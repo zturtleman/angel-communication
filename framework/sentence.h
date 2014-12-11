@@ -75,7 +75,7 @@ class SentencePart {
 
 	SentenceFunction	function;
 	//bool				incomplete; // aka sentence fragment
-	//String conjunction;	// word that connects this sentence part to an earlier part
+	String conjunction;	// word that connects this sentence part to an earlier part
 
 	// Word causing a question. either a http://en.wikipedia.org/wiki/Interrogative_word
 	// or (only at the beginning of a sentence) http://en.wikipedia.org/wiki/English_modal_verbs or a linking verb.

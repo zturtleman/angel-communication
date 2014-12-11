@@ -50,9 +50,12 @@ const char *modalVerbs[] = {
 
 // http://en.wikipedia.org/wiki/Auxiliary_verb
 // NOTE: modal verbs and auxiliary verbs are treated the same by this program
-// NOTE: "have" and "do" are in the commandWords list instead of here
+// NOTE: "do" is in the commandWords list instead of here
 const char *auxiliaryVerbs[] = {
 	"am", "are", "be", "been", "being", "did", "does", "had", "has", "is", "was", "were",
+
+	// this was in commandWords, but it's kind of more stating something rather than a command
+	"have",
 
 	// like is uber complicated and not always a verb
 	"like",
@@ -73,7 +76,7 @@ const char *linkingVerbs[] = {
 const char *commandWords[] = {
 	// http://ogden.basic-english.org/verbs.html
 	"be", "come", "give", "make",
-	"have", "go", "get", "send",
+	/*"have", */"go", "get", "send",
 	"do", "put", "keep", "see",
 	"seem", "take", "let", "say",
 	// There are said to sometimes be used as operators.
@@ -134,8 +137,8 @@ void Sentence::parse( const char *text ) {
 	enum TokenType {
 		TT_NONE,
 		TT_QUESTWORD,
-		TT_AUXVERB,
-		TT_MODALVERB,
+		//TT_AUXVERB,
+		//TT_MODALVERB,
 		TT_LINKVERB,
 		TT_MISCVERB,
 		TT_COMMANDWORD,
@@ -150,13 +153,9 @@ void Sentence::parse( const char *text ) {
 		if ( inWordList( tokens[i], interrogativeWords ) ) {
 			tokenTypes[i] = TT_QUESTWORD;
 		}
-		else if ( inWordList( tokens[i], auxiliaryVerbs ) ) {
-			tokenTypes[i] = TT_AUXVERB;
-		}
-		else if ( inWordList( tokens[i], modalVerbs ) ) {
-			tokenTypes[i] = TT_MODALVERB;
-		}
-		else if ( inWordList( tokens[i], linkingVerbs ) ) {
+		else if ( inWordList( tokens[i], auxiliaryVerbs )
+				|| inWordList( tokens[i], modalVerbs )
+				|| inWordList( tokens[i], linkingVerbs ) ) {
 			tokenTypes[i] = TT_LINKVERB;
 		}
 		else if ( inWordList( tokens[i], miscVerbs ) ) {
@@ -229,7 +228,7 @@ void Sentence::parse( const char *text ) {
 		// modal verb acts like a interrogative if at beginning of sentence
 		// otherwise acts like a linking verb (at least, that's my conclusion)
 		// command words also have beginning of sentence and linking behavior
-		else if ( tokenTypes[i] == TT_AUXVERB || tokenTypes[i] == TT_MODALVERB || tokenTypes[i] == TT_LINKVERB || tokenTypes[i] == TT_COMMANDWORD ) {
+		else if ( tokenTypes[i] == TT_LINKVERB || tokenTypes[i] == TT_COMMANDWORD ) {
 			// try to form a link
 			TokenType perviousType = ( i > sectencePartFirstToken ) ? tokenTypes[i-1] : TT_NONE;
 
@@ -262,12 +261,49 @@ void Sentence::parse( const char *text ) {
 			}
 			// after something else
 			else {
+				TokenType realPrevType = ( i > 1 ) ? tokenTypes[i-1] : TT_NONE; // conjunction changes sectencePartFirstToken
+				TokenType realNextType = ( i+1 < tokens.getNumTokens() ) ? tokenTypes[i+1] : TT_NONE;
+				if ( ( !newPart.linkingVerb.isEmpty() || !newPart.conjunction.isEmpty() ) && realPrevType == TT_LINKVERB ) {
+					// command can predicate
+					if ( tokenTypes[i] == TT_COMMANDWORD ) {
+						if ( newPart.subject.isEmpty() ) {
+							readSubject = true;
+							newPart.subject = tokens[i];
+							continue;
+						} else if ( newPart.predicate.isEmpty() ) {
+							readPredicate = true;
+							newPart.predicate = tokens[i];
+							continue;
+						}
+					}
+
+					//printf("  NOTICE: Two linking verbs in a row in one sentence part (ignoring second)\n");
+					continue;
+				}
+
 				if ( !newPart.linkingVerb.isEmpty() ) {
-					printf("  WARNING: Two linking verbs found in one sentence part\n");
 					// This could be a useless word that just breaks stuff.
 					// In "How many legs does a cat have?" 'does' and 'have' are link words.
 					// Don't need the 'have' for responding, unless nitpicking grammer.
-					continue;
+					if ( realNextType == TT_NONE || realNextType == TT_PUNCTUATION ) {
+						//printf("  NOTICE: Ignoring second linking verb at end of sentence\n");
+						continue;
+					}
+
+					printf("  NOTICE: Two linking verbs found in one sentence part\n");
+
+					// finish this sentence part
+					SentencePart::SentenceFunction perviousFunction = newPart.function;
+					parts.push_back( newPart );
+
+					// fresh part
+					newPart.clear();
+					sectencePartFirstToken = i;
+
+					newPart.function = perviousFunction;
+					newPart.conjunction = tokens[i];
+				} else {
+					newPart.linkingVerb = tokens[i];
 				}
 
 				if ( newPart.function == SentencePart::SF_UNKNOWN ) {
@@ -277,7 +313,6 @@ void Sentence::parse( const char *text ) {
 						newPart.function = SentencePart::SF_STATEMENT;
 					}
 				}
-				newPart.linkingVerb = tokens[i];
 
 				// search back and find unknown tokens (presumably a noun or adjective) to use as the subject
 				// Ex: Say "Marvel's Ironman" is nice.
@@ -366,6 +401,8 @@ void Sentence::parse( const char *text ) {
 
 void SentencePart::clear() {
 	function = SF_UNKNOWN;
+	//incomplete;
+	conjunction = "";
 	interrogative = "";
 	command = "";
 	subjectVerb = "";

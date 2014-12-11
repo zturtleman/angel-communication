@@ -96,6 +96,10 @@ int main( int argc, char **argv )
 		for ( int part = 0; part < sentence.parts.size(); ++part ) {
 			printf( "  %d: Type: %s", part, sentence.parts[part].getFunctionName() );
 
+			if ( !sentence.parts[part].conjunction.isEmpty() ) {
+				printf( " Conjunction: %s", sentence.parts[part].conjunction.c_str() );
+			}
+
 			if ( !sentence.parts[part].interrogative.isEmpty() ) {
 				printf( " Interrogative: %s", sentence.parts[part].interrogative.c_str() );
 			}
